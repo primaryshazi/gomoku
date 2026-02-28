@@ -1,0 +1,2632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五子棋 · 对战</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    color: #fff;
+    overflow-x: hidden;
+}
+
+/* ══════════ SCREENS ══════════ */
+.screen {
+    display: none;
+    min-height: 100vh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+}
+.screen.show { display: flex; }
+
+/* ══════════ TYPOGRAPHY ══════════ */
+.page-title {
+    font-size: 3rem;
+    font-weight: 700;
+    letter-spacing: 10px;
+    margin-bottom: 12px;
+    text-shadow: 0 0 30px rgba(100, 200, 255, 0.5);
+    color: #e0f0ff;
+}
+.page-sub {
+    font-size: 1rem;
+    color: rgba(200, 220, 255, 0.45);
+    letter-spacing: 3px;
+    margin-bottom: 44px;
+}
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: #e0f0ff;
+    margin-bottom: 32px;
+    text-align: center;
+}
+
+/* ══════════ MENU CARD ══════════ */
+.menu-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 300px;
+}
+
+/* ══════════ BUTTONS ══════════ */
+.btn {
+    width: 100%;
+    padding: 15px 0;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: transform 0.15s, filter 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+}
+.btn:hover  { filter: brightness(1.12); transform: translateY(-2px); }
+.btn:active { transform: scale(0.97); filter: brightness(0.95); }
+.btn:disabled { filter: brightness(0.38); cursor: not-allowed; transform: none !important; }
+
+.btn-primary {
+    background: linear-gradient(135deg, #4a90d9, #2c6faf);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(74, 144, 217, 0.35);
+}
+.btn-secondary {
+    background: linear-gradient(135deg, #6c5ce7, #4a3aa0);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(108, 92, 231, 0.35);
+}
+.btn-danger {
+    background: linear-gradient(135deg, #e05c5c, #b02a2a);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(224, 92, 92, 0.35);
+}
+.btn-ghost {
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(200, 220, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.btn-resign {
+    background: linear-gradient(135deg, #c97c2a, #8f4a10);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(200, 120, 40, 0.32);
+}
+.btn-swap {
+    background: linear-gradient(135deg, #2a9db5, #1a6878);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(42, 157, 181, 0.32);
+}
+
+/* ══════════ DIVIDER ══════════ */
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: rgba(200, 220, 255, 0.3);
+    font-size: 0.85rem;
+    margin: 2px 0;
+}
+.divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ══════════ ROOM INPUT ══════════ */
+.input-row { display: flex; gap: 10px; }
+.room-input {
+    flex: 1;
+    padding: 14px 12px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 8px;
+    text-align: center;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+    width: 0; /* flex will size it */
+}
+.room-input:focus { border-color: rgba(100, 200, 255, 0.5); }
+.room-input::placeholder { font-size: 0.88rem; letter-spacing: 1px; color: rgba(200,220,255,0.25); font-weight: 400; }
+
+.error-msg { min-height: 20px; font-size: 0.82rem; color: #ff8585; text-align: center; }
+
+.back-link {
+    text-align: center;
+    font-size: 0.85rem;
+    color: rgba(200, 220, 255, 0.35);
+    cursor: pointer;
+    transition: color 0.2s;
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+.back-link:hover { color: rgba(200, 220, 255, 0.8); }
+
+/* ══════════ LAN LOBBY STATS ══════════ */
+.lan-stats {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto 4px;
+}
+.lan-stat-card {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px 8px 8px;
+    text-align: center;
+}
+.lan-stat-num {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #7ecfff;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+.lan-stat-num.rooms-num { color: #8de8b0; }
+.lan-stat-label {
+    font-size: 0.62rem;
+    color: rgba(200,220,255,0.35);
+    letter-spacing: 1.5px;
+    margin-top: 3px;
+}
+
+/* ══════════ ROOM VISIBILITY TOGGLE ══════════ */
+.vis-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+.vis-btn {
+    flex: 1;
+    padding: 8px 0;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: rgba(200,220,255,0.45);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+}
+.vis-btn:hover { filter: brightness(1.15); }
+.vis-btn.active {
+    background: rgba(42,157,181,0.2);
+    border-color: rgba(42,157,181,0.5);
+    color: #7ecfff;
+}
+
+/* ══════════ PUBLIC ROOM LIST ══════════ */
+.pub-rooms-section {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+}
+.pub-rooms-hdr {
+    font-size: 0.65rem;
+    color: rgba(200,220,255,0.28);
+    letter-spacing: 2px;
+    text-align: center;
+    margin-bottom: 8px;
+}
+.pub-rooms-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.pub-rooms-list::-webkit-scrollbar { width: 4px; }
+.pub-rooms-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+.pub-room-empty {
+    text-align: center;
+    font-size: 0.78rem;
+    color: rgba(200,220,255,0.18);
+    padding: 14px 0;
+    letter-spacing: 1px;
+}
+.pub-room-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 8px 10px;
+    transition: background 0.15s;
+}
+.pub-room-item:hover { background: rgba(255,255,255,0.07); }
+.pub-room-av { font-size: 1.3rem; line-height: 1; flex-shrink: 0; }
+.pub-room-info { flex: 1; min-width: 0; }
+.pub-room-name {
+    font-size: 0.84rem;
+    color: rgba(200,220,255,0.8);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pub-room-code {
+    font-size: 0.68rem;
+    color: rgba(200,220,255,0.3);
+    letter-spacing: 2px;
+    margin-top: 2px;
+}
+.pub-room-join {
+    background: rgba(42,157,181,0.18);
+    border: 1px solid rgba(42,157,181,0.4);
+    color: #7ecfff;
+    border-radius: 7px;
+    padding: 5px 12px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    letter-spacing: 1px;
+}
+.pub-room-join:hover { background: rgba(42,157,181,0.38); }
+
+/* ══════════ WAITING SCREEN ══════════ */
+.spinner {
+    width: 44px; height: 44px;
+    border: 3px solid rgba(255,255,255,0.08);
+    border-top-color: #7de8ff;
+    border-radius: 50%;
+    animation: spin 0.85s linear infinite;
+    margin-bottom: 32px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.room-code-card {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 36px 52px;
+    text-align: center;
+    margin-bottom: 28px;
+}
+.rcc-label { font-size: 0.82rem; letter-spacing: 3px; color: rgba(200,220,255,0.4); margin-bottom: 14px; }
+.rcc-value {
+    font-size: 3rem; font-weight: 700; letter-spacing: 18px;
+    color: #7de8ff;
+    text-shadow: 0 0 24px rgba(125, 232, 255, 0.55);
+    margin-bottom: 14px;
+}
+.rcc-hint { font-size: 0.82rem; color: rgba(200,220,255,0.35); line-height: 1.6; }
+
+/* ══════════ GAME SCREEN ══════════ */
+#screen-game {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 28px;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 32px;
+    padding-bottom: 32px;
+}
+
+.board-wrap {
+    position: relative;
+    border-radius: 12px;
+    padding: 20px;
+    background: radial-gradient(ellipse at 30% 30%, #c8a96e, #8b6914);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.15);
+    flex-shrink: 0;
+}
+
+canvas {
+    display: block;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+/* ── Side panel ── */
+.side {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 220px;
+    flex-shrink: 0;
+}
+
+.player-card {
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid transparent;
+    transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.player-card.active {
+    border-color: rgba(100,200,255,0.55);
+    box-shadow: 0 0 20px rgba(100,200,255,0.2);
+    transform: translateX(4px);
+}
+.player-card.winner {
+    border-color: #ffd700;
+    box-shadow: 0 0 28px rgba(255,215,0,0.4);
+    background: rgba(255,215,0,0.09);
+}
+.player-card.mine { border-color: rgba(125,232,255,0.3); }
+
+.stone-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 2px 3px 8px rgba(0,0,0,0.5);
+}
+.stone-icon.black { background: radial-gradient(circle at 35% 35%, #777, #111); }
+.stone-icon.white { background: radial-gradient(circle at 35% 35%, #fff, #bbb); }
+
+.player-info { flex: 1; overflow: hidden; }
+.player-name { font-size: 0.92rem; font-weight: 600; color: #e0f0ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-sub  { font-size: 0.72rem; color: rgba(200,220,255,0.45); margin-top: 2px; }
+
+.turn-tag {
+    font-size: 0.68rem; padding: 2px 8px;
+    border-radius: 99px;
+    background: rgba(100,200,255,0.2);
+    color: #7de8ff;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.status-box {
+    background: rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 12px 16px;
+    text-align: center;
+    font-size: 0.92rem;
+    color: #c0dfff;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.5;
+}
+.win-text { font-size: 1.05rem; font-weight: 700; color: #ffd700; text-shadow: 0 0 12px rgba(255,215,0,0.5); }
+
+.btn-group { display: flex; flex-direction: column; gap: 10px; }
+.btn-group .btn { font-size: 0.88rem; padding: 11px 0; }
+
+.move-count { text-align: center; font-size: 0.76rem; color: rgba(180,200,230,0.4); }
+
+/* ══════════ TIMER PANEL ══════════ */
+.timer-panel {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.timer-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.timer-item { flex: 1; text-align: center; }
+.timer-label {
+    font-size: 0.6rem;
+    color: rgba(200,220,255,0.3);
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+}
+.timer-duration {
+    font-size: 1.05rem; font-weight: 700;
+    color: rgba(180,210,240,0.65);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+}
+.timer-sep {
+    width: 1px; height: 32px;
+    background: rgba(255,255,255,0.08);
+    flex-shrink: 0;
+}
+.timer-cd {
+    font-size: 1.5rem; font-weight: 700;
+    color: #5dce8a;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+    transition: color 0.4s;
+    display: inline-block; min-width: 2ch;
+}
+.timer-cd.warn   { color: #f0c040; }
+.timer-cd.danger { color: #e05c5c; animation: cdPulse 0.55s ease-in-out infinite alternate; }
+@keyframes cdPulse { from { opacity: 1; } to { opacity: 0.35; } }
+
+.lan-tag {
+    text-align: center;
+    font-size: 0.75rem;
+    color: rgba(125,232,255,0.5);
+    letter-spacing: 1px;
+}
+
+/* ══════════ DIALOG ══════════ */
+.dialog-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(6px);
+}
+.dialog-box {
+    background: linear-gradient(145deg, #1e2a4a, #162040);
+    border: 1px solid rgba(100,200,255,0.2);
+    border-radius: 20px;
+    padding: 36px 32px 28px;
+    text-align: center;
+    max-width: 320px;
+    width: 90%;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+    animation: dlgIn 0.2s ease;
+}
+@keyframes dlgIn { from { transform: scale(0.88); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.dlg-icon  { font-size: 2.8rem; margin-bottom: 10px; }
+.dlg-title { font-size: 1.1rem; font-weight: 700; color: #e0f0ff; margin-bottom: 8px; }
+.dlg-msg   { font-size: 0.88rem; color: rgba(200,220,255,0.55); line-height: 1.7; margin-bottom: 24px; white-space: pre-line; }
+.dlg-btns  { display: flex; gap: 12px; }
+.dlg-btns .btn { flex: 1; padding: 12px 0; }
+
+/* ══════════ TOAST ══════════ */
+.toast {
+    position: fixed; bottom: 36px; left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(22,32,64,0.96);
+    border: 1px solid rgba(100,200,255,0.2);
+    border-radius: 99px;
+    padding: 11px 24px;
+    font-size: 0.88rem;
+    color: #c0dfff;
+    z-index: 200;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    white-space: nowrap;
+    max-width: calc(100vw - 40px);
+    text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ══════════ SIZE PICKER ══════════ */
+.size-section {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 12px 16px 14px;
+}
+.size-label {
+    font-size: 0.76rem;
+    color: rgba(200,220,255,0.4);
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+.size-row {
+    display: flex;
+    gap: 7px;
+    justify-content: center;
+}
+.size-btn {
+    flex: 1;
+    padding: 7px 2px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: rgba(200,220,255,0.55);
+    font-size: 0.73rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    letter-spacing: 0;
+}
+.size-btn:hover { background: rgba(100,200,255,0.1); border-color: rgba(100,200,255,0.3); color: #7de8ff; }
+.size-btn.active {
+    background: rgba(100,200,255,0.18);
+    border-color: rgba(100,200,255,0.55);
+    color: #7de8ff;
+    box-shadow: 0 0 10px rgba(125,232,255,0.15);
+}
+
+/* ══════════ MOVE LIST ══════════ */
+.move-list-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 200px;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+.move-list-title {
+    font-size: 0.72rem;
+    color: rgba(200,220,255,0.35);
+    letter-spacing: 3px;
+    text-align: center;
+    padding: 2px 0;
+}
+.move-list {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    overflow-y: auto;
+    max-height: min(520px, calc(100vh - 180px));
+    padding: 6px 4px;
+}
+.move-list::-webkit-scrollbar { width: 3px; }
+.move-list::-webkit-scrollbar-track { background: transparent; }
+.move-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.move-list-empty {
+    text-align: center;
+    font-size: 0.75rem;
+    color: rgba(200,220,255,0.2);
+    padding: 20px 8px;
+    letter-spacing: 1px;
+}
+.move-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.12s;
+    user-select: none;
+}
+.move-item:hover   { background: rgba(100,200,255,0.12); }
+.move-item.latest  { background: rgba(100,200,255,0.07); }
+.move-item.is-win .move-coord { color: #ffd700; }
+.move-num {
+    width: 20px;
+    text-align: right;
+    font-size: 0.68rem;
+    color: rgba(200,220,255,0.28);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+.move-dot {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+.move-dot.black { background: radial-gradient(circle at 35% 35%, #888, #111); }
+.move-dot.white { background: radial-gradient(circle at 35% 35%, #fff, #ccc); border: 1px solid rgba(0,0,0,0.15); }
+.move-coord {
+    font-weight: 600;
+    color: #b8d8f8;
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+    flex: 1;
+}
+
+/* ══════════ AUX TABS (记录 / 聊天) ══════════ */
+.aux-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 7px;
+}
+.aux-tab {
+    flex: 1;
+    padding: 6px 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    color: rgba(200,220,255,0.45);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    letter-spacing: 1px;
+    position: relative;
+}
+.aux-tab.active {
+    background: rgba(100,200,255,0.14);
+    border-color: rgba(100,200,255,0.45);
+    color: #7de8ff;
+}
+.chat-badge {
+    position: absolute;
+    top: -5px; right: -5px;
+    min-width: 16px; height: 16px;
+    border-radius: 99px;
+    background: #e05c5c;
+    font-size: 0.6rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    padding: 0 3px;
+    pointer-events: none;
+}
+
+/* ══════════ CHAT PANEL ══════════ */
+.chat-list {
+    overflow-y: auto;
+    max-height: min(400px, calc(100vh - 280px));
+    padding: 6px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    min-height: 80px;
+}
+.chat-list::-webkit-scrollbar { width: 3px; }
+.chat-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.chat-empty {
+    text-align: center;
+    font-size: 0.73rem;
+    color: rgba(200,220,255,0.2);
+    padding: 18px 8px;
+    letter-spacing: 1px;
+}
+.chat-msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 92%;
+    padding: 0 4px;
+}
+.chat-msg.mine   { align-self: flex-end;   align-items: flex-end; }
+.chat-msg.theirs { align-self: flex-start; align-items: flex-start; }
+.chat-sender {
+    font-size: 0.63rem;
+    color: rgba(200,220,255,0.3);
+    margin-bottom: 3px;
+    padding: 0 4px;
+}
+.chat-bubble {
+    padding: 7px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    word-break: break-all;
+}
+.chat-msg.mine   .chat-bubble {
+    background: rgba(74,144,217,0.28);
+    border: 1px solid rgba(74,144,217,0.38);
+    color: #cce4ff;
+    border-bottom-right-radius: 3px;
+}
+.chat-msg.theirs .chat-bubble {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #c4d8ee;
+    border-bottom-left-radius: 3px;
+}
+.chat-sys {
+    text-align: center;
+    font-size: 0.66rem;
+    color: rgba(200,220,255,0.22);
+    padding: 2px 0;
+    letter-spacing: 0.5px;
+}
+.chat-input-row {
+    display: flex;
+    gap: 5px;
+    margin-top: 7px;
+}
+.chat-input {
+    flex: 1;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.8rem;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+    min-width: 0;
+}
+.chat-input:focus { border-color: rgba(100,200,255,0.45); }
+.chat-input::placeholder { color: rgba(200,220,255,0.22); font-size: 0.75rem; }
+.chat-send-btn {
+    width: 34px; height: 34px;
+    border: none; border-radius: 8px;
+    background: linear-gradient(135deg, #4a90d9, #2c6faf);
+    color: #fff; font-size: 0.95rem;
+    cursor: pointer; flex-shrink: 0;
+    transition: filter 0.15s;
+    display: flex; align-items: center; justify-content: center;
+}
+.chat-send-btn:hover  { filter: brightness(1.15); }
+.chat-send-btn:active { filter: brightness(0.9); }
+
+/* ══════════ AVATAR IN PLAYER CARD ══════════ */
+.avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+.avatar-emoji {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.14);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: border-color 0.3s;
+}
+.player-card.active   .avatar-emoji { border-color: rgba(100,200,255,0.55); }
+.player-card.winner   .avatar-emoji { border-color: #ffd700; box-shadow: 0 0 12px rgba(255,215,0,0.4); }
+.avatar-stone-badge {
+    position: absolute; bottom: -2px; right: -2px;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    border: 2px solid rgba(15,30,70,0.95);
+}
+.avatar-stone-badge.black { background: radial-gradient(circle at 35% 35%, #777, #111); }
+.avatar-stone-badge.white { background: radial-gradient(circle at 35% 35%, #fff, #ccc); }
+
+/* ══════════ LOBBY PROFILE CARDS ══════════ */
+.lobby-profiles {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 12px 10px;
+}
+.lp-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    padding: 8px 4px;
+    border-radius: 10px;
+    transition: background 0.15s;
+    min-width: 0;
+}
+.lp-card:hover { background: rgba(100,200,255,0.1); }
+.lp-avatar {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    border: 2px solid rgba(255,255,255,0.13);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.7rem;
+    line-height: 1;
+    transition: border-color 0.2s;
+}
+.lp-card:hover .lp-avatar { border-color: rgba(100,200,255,0.4); }
+.lp-name {
+    font-size: 0.82rem; font-weight: 600; color: #c0dfff;
+    max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-align: center;
+}
+.lp-edit { font-size: 0.65rem; color: rgba(200,220,255,0.3); letter-spacing: 1px; }
+.lp-vs {
+    font-size: 0.78rem; font-weight: 700; color: rgba(200,220,255,0.28);
+    letter-spacing: 2px; flex-shrink: 0;
+}
+
+/* ══════════ PROFILE EDITOR OVERLAY ══════════ */
+#profile-editor {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.72);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 150;
+    backdrop-filter: blur(8px);
+}
+.pe-box {
+    background: linear-gradient(145deg, #1e2a4a, #162040);
+    border: 1px solid rgba(100,200,255,0.22);
+    border-radius: 22px;
+    padding: 28px 22px 22px;
+    width: 360px;
+    max-width: 94vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    animation: dlgIn 0.2s ease;
+}
+.pe-box::-webkit-scrollbar { width: 3px; }
+.pe-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.pe-title {
+    font-size: 1.05rem; font-weight: 700; color: #e0f0ff;
+    text-align: center; margin-bottom: 18px; letter-spacing: 2px;
+}
+.pe-preview {
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    border: 2px solid rgba(100,200,255,0.35);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.1rem; line-height: 1;
+    margin: 0 auto 16px;
+    box-shadow: 0 0 20px rgba(100,200,255,0.12);
+    transition: transform 0.15s;
+}
+.pe-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    margin-bottom: 18px;
+}
+.pe-avatar-opt {
+    aspect-ratio: 1;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid transparent;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.35rem; line-height: 1;
+    cursor: pointer;
+    transition: all 0.12s;
+}
+.pe-avatar-opt:hover  { background: rgba(100,200,255,0.1); border-color: rgba(100,200,255,0.3); }
+.pe-avatar-opt.selected {
+    background: rgba(100,200,255,0.17);
+    border-color: rgba(100,200,255,0.65);
+    box-shadow: 0 0 10px rgba(125,232,255,0.2);
+}
+.pe-label {
+    font-size: 0.73rem; color: rgba(200,220,255,0.38);
+    letter-spacing: 2px; margin-bottom: 8px;
+}
+.pe-char-count {
+    font-size: 0.7rem; color: rgba(200,220,255,0.28);
+    text-align: right; margin-top: -4px; margin-bottom: 14px;
+}
+.pe-input {
+    width: 100%; padding: 11px 14px;
+    background: rgba(255,255,255,0.07);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    color: #fff; font-size: 1rem; font-weight: 600;
+    outline: none; transition: border-color 0.2s;
+    font-family: inherit; margin-bottom: 6px;
+}
+.pe-input:focus { border-color: rgba(100,200,255,0.5); }
+</style>
+</head>
+<body>
+
+<!-- ════════ LOBBY ════════ -->
+<div class="screen show" id="screen-lobby">
+    <div class="page-title">五子棋</div>
+    <div class="page-sub">GOMOKU · 对战</div>
+    <div class="menu-card">
+        <div class="size-section">
+            <div class="size-label">棋 盘 大 小</div>
+            <div class="size-row">
+                <button class="size-btn" data-size="13" onclick="selectSize(13)">13×13</button>
+                <button class="size-btn active" data-size="15" onclick="selectSize(15)">15×15</button>
+                <button class="size-btn" data-size="17" onclick="selectSize(17)">17×17</button>
+                <button class="size-btn" data-size="19" onclick="selectSize(19)">19×19</button>
+                <button class="size-btn" data-size="21" onclick="selectSize(21)">21×21</button>
+            </div>
+        </div>
+        <!-- 我的资料卡 -->
+        <div class="lobby-profiles" style="justify-content:center;">
+            <div class="lp-card" style="width:140px;" onclick="openProfileEditor(0)">
+                <div class="lp-avatar" id="lp-avatar0">🐼</div>
+                <div class="lp-name"   id="lp-name0">玩家一</div>
+                <div class="lp-edit">点击编辑资料</div>
+            </div>
+        </div>
+        <button class="btn btn-primary"   onclick="startLocal()">本地双人对战</button>
+        <button class="btn btn-secondary" onclick="startLan()">局域网对战</button>
+    </div>
+</div>
+
+<!-- ════════ PROFILE EDITOR ════════ -->
+<div id="profile-editor" style="display:none">
+    <div class="pe-box">
+        <div class="pe-title" id="pe-title">编辑资料</div>
+        <div class="pe-preview" id="pe-preview">🐼</div>
+        <div class="pe-grid"   id="pe-grid"></div>
+        <div class="pe-label">昵 称（最多 10 字符）</div>
+        <input class="pe-input" id="pe-input" maxlength="10" placeholder="请输入昵称"
+               oninput="document.getElementById('pe-char').textContent=this.value.length+'/10'">
+        <div class="pe-char-count" id="pe-char">0/10</div>
+        <div class="dlg-btns">
+            <button class="btn btn-primary" onclick="saveProfileEdit()">保 存</button>
+            <button class="btn btn-ghost"   onclick="closeProfileEditor()">取 消</button>
+        </div>
+    </div>
+</div>
+
+<!-- ════════ LAN LOBBY ════════ -->
+<div class="screen" id="screen-lan-lobby">
+    <div class="section-title">局域网对战</div>
+
+    <!-- 在线统计 -->
+    <div class="lan-stats">
+        <div class="lan-stat-card">
+            <div class="lan-stat-num" id="stat-online">--</div>
+            <div class="lan-stat-label">在 线 人 数</div>
+        </div>
+        <div class="lan-stat-card">
+            <div class="lan-stat-num rooms-num" id="stat-rooms">--</div>
+            <div class="lan-stat-label">对 局 房 间</div>
+        </div>
+    </div>
+
+    <div class="menu-card">
+        <!-- 房间可见性 -->
+        <div style="font-size:0.65rem;color:rgba(200,220,255,0.28);letter-spacing:1.5px;text-align:center;margin-bottom:6px;">创建房间可见性</div>
+        <div class="vis-row">
+            <button class="vis-btn active" id="vis-public"  onclick="setRoomVisibility(true)">🌐 公开</button>
+            <button class="vis-btn"        id="vis-private" onclick="setRoomVisibility(false)">🔒 私密</button>
+        </div>
+        <button class="btn btn-primary" onclick="createRoom()">创建房间</button>
+        <div class="divider">或者加入已有房间</div>
+        <div class="input-row">
+            <input class="room-input" id="join-input" placeholder="房间号" maxlength="4"
+                   onkeydown="if(event.key==='Enter')joinRoom()">
+            <button class="btn btn-secondary" style="width:auto;padding:14px 18px;letter-spacing:1px;"
+                    onclick="joinRoom()">加入</button>
+        </div>
+        <div class="error-msg" id="join-error"></div>
+        <div class="back-link" onclick="showScreen('screen-lobby')">← 返回主页</div>
+    </div>
+
+    <!-- 公开房间列表 -->
+    <div class="pub-rooms-section">
+        <div class="pub-rooms-hdr">── 等待加入的公开房间 ──</div>
+        <div class="pub-rooms-list" id="pub-rooms-list">
+            <div class="pub-room-empty">暂无公开房间</div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════ WAITING ════════ -->
+<div class="screen" id="screen-waiting">
+    <div class="spinner"></div>
+    <div class="room-code-card">
+        <div class="rcc-label">房 间 号</div>
+        <div class="rcc-value" id="wait-code">----</div>
+        <div class="rcc-hint">将以上房间号告诉对方<br>对方在同一局域网内打开相同地址后输入即可</div>
+    </div>
+    <button class="btn btn-ghost" style="width:200px;" onclick="cancelWaiting()">取 消</button>
+</div>
+
+<!-- ════════ GAME ════════ -->
+<div class="screen" id="screen-game">
+
+    <!-- ── 左侧面板 ── -->
+    <div class="side">
+        <!-- 玩家1（黑） -->
+        <div class="player-card" id="card0">
+            <div class="avatar-wrap">
+                <div class="avatar-emoji" id="avatar0">🐼</div>
+                <div class="avatar-stone-badge black"></div>
+            </div>
+            <div class="player-info">
+                <div class="player-name" id="pname0">玩家一</div>
+                <div class="player-sub" id="psub0">执黑先行</div>
+            </div>
+            <div class="turn-tag" id="badge0">轮到你</div>
+        </div>
+        <!-- 玩家2（白） -->
+        <div class="player-card" id="card1">
+            <div class="avatar-wrap">
+                <div class="avatar-emoji" id="avatar1">🦁</div>
+                <div class="avatar-stone-badge white"></div>
+            </div>
+            <div class="player-info">
+                <div class="player-name" id="pname1">玩家二</div>
+                <div class="player-sub" id="psub1">执白后行</div>
+            </div>
+            <div class="turn-tag" id="badge1" style="display:none">轮到你</div>
+        </div>
+
+        <!-- 状态 -->
+        <div class="status-box" id="status">黑方先行，请落子</div>
+
+        <!-- 操作按钮 -->
+        <div class="btn-group">
+            <button class="btn btn-primary" id="btn-undo"    onclick="doUndo()">悔 棋</button>
+            <button class="btn btn-swap"    id="btn-swap"    onclick="doSwap()">换 边</button>
+            <button class="btn btn-danger"  id="btn-restart" onclick="doRestart()">重 玩</button>
+            <button class="btn btn-resign"  id="btn-resign"  onclick="doResign()">认 输</button>
+            <button class="btn btn-ghost"                    onclick="backToLobby()">回到主页</button>
+        </div>
+
+        <!-- 计时器面板 -->
+        <div class="timer-panel">
+            <div class="timer-row">
+                <div class="timer-item">
+                    <div class="timer-label">对 局 时 长</div>
+                    <div class="timer-duration" id="game-duration">00:00</div>
+                </div>
+                <div class="timer-sep"></div>
+                <div class="timer-item">
+                    <div class="timer-label">落子倒计时</div>
+                    <div class="timer-cd" id="move-countdown">60</div>
+                </div>
+            </div>
+            <div class="move-count" id="move-count">第 0 手</div>
+        </div>
+        <div class="lan-tag" id="lan-tag" style="display:none">局域网对战中</div>
+    </div>
+
+    <!-- ── 棋盘（中） ── -->
+    <div class="board-wrap">
+        <canvas id="board"></canvas>
+    </div>
+
+    <!-- ── 右侧面板：聊天 / 落子记录 ── -->
+    <div class="move-list-wrap">
+        <div class="aux-tabs">
+            <button class="aux-tab active" id="chat-tab-hdr" onclick="showAuxTab('chat')">
+                聊 天
+                <span class="chat-badge" id="chat-badge" style="display:none">0</span>
+            </button>
+            <button class="aux-tab" onclick="showAuxTab('moves')">落子记录</button>
+        </div>
+        <!-- 落子记录 -->
+        <div id="aux-moves" style="display:none">
+            <div class="move-list" id="move-list">
+                <div class="move-list-empty">暂无记录</div>
+            </div>
+        </div>
+        <!-- 聊天（默认展示） -->
+        <div id="aux-chat">
+            <div class="chat-list" id="chat-list">
+                <div class="chat-empty" id="chat-empty">暂无消息</div>
+            </div>
+            <div class="chat-input-row" id="chat-input-row" style="display:none">
+                <input class="chat-input" id="chat-input" maxlength="127"
+                       placeholder="发送消息…（最多127字符）"
+                       onkeydown="if(event.key==='Enter'){sendChat();event.preventDefault();}">
+                <button class="chat-send-btn" onclick="sendChat()">➤</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════ DIALOG ════════ -->
+<div class="dialog-overlay" id="dialog" style="display:none">
+    <div class="dialog-box">
+        <div class="dlg-icon"  id="dlg-icon">❓</div>
+        <div class="dlg-title" id="dlg-title">提示</div>
+        <div class="dlg-msg"   id="dlg-msg"></div>
+        <div class="dlg-btns">
+            <button class="btn btn-primary" id="dlg-ok"     onclick="dialogOK()">确定</button>
+            <button class="btn btn-ghost"   id="dlg-cancel" onclick="dialogCancel()">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- ════════ TOAST ════════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+//   AVATARS & PROFILES
+// ═══════════════════════════════════════
+const AVATARS = [
+    '🐼','🦁','🐯','🐻','🦊','🐺',
+    '🦝','🐮','🐷','🐸','🦄','🐲',
+    '🦅','🦋','🐬','🦈','🦖','🤖',
+    '👻','🎭','🌟','🍀','🔥','⚡',
+    '🌊','🎪','🎮','🚀','🎯','🎸',
+];
+
+let profiles = [
+    { name: '玩家一', avatar: 0 },
+];
+
+const GUEST_NAMES = ['神秘对手','路人棋手','挑战者','无名高手','江湖棋客','对弈者','棋坛新秀','天才棋手','不败传说','过路高人'];
+
+function randomOpponent() {
+    const myAv = profiles[0].avatar;
+    let av;
+    do { av = Math.floor(Math.random() * AVATARS.length); } while (av === myAv);
+    const name = GUEST_NAMES[Math.floor(Math.random() * GUEST_NAMES.length)];
+    return { name, avatar: av };
+}
+
+(function loadProfiles() {
+    try {
+        const p1 = JSON.parse(localStorage.getItem('gomoku_p1') || 'null');
+        if (p1 && typeof p1.name === 'string' && p1.avatar >= 0) profiles[0] = p1;
+    } catch(e) {}
+})();
+
+function saveProfile(idx) {
+    try { localStorage.setItem(`gomoku_p${idx+1}`, JSON.stringify(profiles[idx])); } catch(e) {}
+}
+
+function updateLobbyProfiles() {
+    const p  = profiles[0];
+    const ae = document.getElementById('lp-avatar0');
+    const nm = document.getElementById('lp-name0');
+    if (ae) ae.textContent = AVATARS[p.avatar] ?? '🐼';
+    if (nm) nm.textContent = p.name;
+}
+
+// ── Profile editor ──
+let _editingIdx = 0;
+let _tempAvatar = 0;
+
+function openProfileEditor(idx) {
+    _editingIdx = idx;
+    _tempAvatar = profiles[idx].avatar;
+    document.getElementById('pe-title').textContent = '编辑我的资料';
+    document.getElementById('pe-preview').textContent = AVATARS[_tempAvatar];
+    const inp = document.getElementById('pe-input');
+    inp.value = profiles[idx].name;
+    document.getElementById('pe-char').textContent = inp.value.length + '/10';
+    // Build avatar grid once
+    const grid = document.getElementById('pe-grid');
+    if (!grid.children.length) {
+        AVATARS.forEach((em, i) => {
+            const btn = document.createElement('div');
+            btn.className = 'pe-avatar-opt';
+            btn.textContent = em;
+            btn.dataset.idx = i;
+            btn.addEventListener('click', () => selectAvatar(i));
+            grid.appendChild(btn);
+        });
+    }
+    document.querySelectorAll('.pe-avatar-opt').forEach((el, i) =>
+        el.classList.toggle('selected', i === _tempAvatar));
+    document.getElementById('profile-editor').style.display = 'flex';
+    inp.focus();
+}
+
+function selectAvatar(i) {
+    _tempAvatar = i;
+    document.getElementById('pe-preview').textContent = AVATARS[i];
+    document.querySelectorAll('.pe-avatar-opt').forEach((el, j) =>
+        el.classList.toggle('selected', j === i));
+}
+
+function closeProfileEditor() {
+    document.getElementById('profile-editor').style.display = 'none';
+}
+
+function saveProfileEdit() {
+    const raw  = document.getElementById('pe-input').value.trim();
+    const name = raw.slice(0, 10) || '玩家一';
+    profiles[_editingIdx] = { name, avatar: _tempAvatar };
+    saveProfile(_editingIdx);
+    updateLobbyProfiles();
+    closeProfileEditor();
+}
+
+// ── helpers ──
+function applyGameProfiles(p1Name, p1Av, p2Name, p2Av) {
+    document.getElementById('pname0').textContent  = p1Name;
+    document.getElementById('pname1').textContent  = p2Name;
+    document.getElementById('avatar0').textContent = AVATARS[p1Av] ?? '🐼';
+    document.getElementById('avatar1').textContent = AVATARS[p2Av] ?? '🦁';
+}
+
+function resetGameProfiles() {
+    applyGameProfiles(profiles[0].name, profiles[0].avatar, '玩家二', 1);
+    document.getElementById('psub0').textContent = '执黑先行';
+    document.getElementById('psub1').textContent = '执白后行';
+    document.getElementById('card0').classList.remove('mine');
+    document.getElementById('card1').classList.remove('mine');
+    document.getElementById('lan-tag').style.display = 'none';
+}
+
+// ═══════════════════════════════════════
+//   CONFIG
+// ═══════════════════════════════════════
+const BOARD_CONFIGS = {
+    13: { cell: 44, pad: 28, radius: 17 },
+    15: { cell: 40, pad: 28, radius: 16 },
+    17: { cell: 36, pad: 28, radius: 14 },
+    19: { cell: 32, pad: 28, radius: 13 },
+    21: { cell: 29, pad: 28, radius: 11 },
+};
+let selectedGrid = 15;
+let GRID = 15, CELL = 40, PAD = 28, RADIUS = 16;
+let SIZE = PAD * 2 + CELL * (GRID - 1);
+
+// ═══════════════════════════════════════
+//   CANVAS
+// ═══════════════════════════════════════
+const canvas = document.getElementById('board');
+const ctx    = canvas.getContext('2d');
+canvas.width = canvas.height = SIZE;
+
+// Button click sound via event delegation (exclude canvas)
+document.addEventListener('click', e => {
+    if (e.target.closest('button') || e.target.classList.contains('back-link')) {
+        playBtnSound();
+    }
+}, true);
+
+// ═══════════════════════════════════════
+//   GAME STATE
+// ═══════════════════════════════════════
+let board       = [];   // 0=空 1=黑 2=白
+let history     = [];   // [{r,c,player}]
+let current     = 1;    // 当前落子方
+let firstPlayer = 1;    // 本局先手方
+let over        = false;
+let winLine     = null; // 五连棋子坐标数组
+
+// LAN state
+let mode             = 'local'; // 'local' | 'lan'
+let myPlayer         = 0;       // LAN 中我方编号 1 或 2
+let ws               = null;
+let pendingUndoReq   = false;   // 已发出悔棋请求，等待回应
+let pendingRestartReq= false;
+let pendingSwapReq   = false;   // 已发出换边请求，等待回应
+let dlgCallback      = null;
+
+// ═══════════════════════════════════════
+//   SCREEN MANAGER
+// ═══════════════════════════════════════
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('show'));
+    document.getElementById(id).classList.add('show');
+}
+
+// ═══════════════════════════════════════
+//   TOAST
+// ═══════════════════════════════════════
+let _toastTimer = null;
+function toast(msg, ms = 2800) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+// ═══════════════════════════════════════
+//   DIALOG
+// ═══════════════════════════════════════
+function showDialog(icon, title, msg, okTxt, cancelTxt, cb) {
+    document.getElementById('dlg-icon').textContent  = icon;
+    document.getElementById('dlg-title').textContent = title;
+    document.getElementById('dlg-msg').textContent   = msg;
+    document.getElementById('dlg-ok').textContent    = okTxt || '确定';
+    const cancelBtn = document.getElementById('dlg-cancel');
+    cancelBtn.style.display = cancelTxt ? '' : 'none';
+    if (cancelTxt) cancelBtn.textContent = cancelTxt;
+    dlgCallback = cb;
+    document.getElementById('dialog').style.display = 'flex';
+}
+function hideDialog() {
+    document.getElementById('dialog').style.display = 'none';
+    dlgCallback = null;
+}
+function dialogOK()     { const cb = dlgCallback; hideDialog(); cb && cb(true);  }
+function dialogCancel() { const cb = dlgCallback; hideDialog(); cb && cb(false); }
+
+// ═══════════════════════════════════════
+//   BOARD INIT
+// ═══════════════════════════════════════
+function initBoard(randomFirst = false) {
+    cancelWinAnim();
+    if (hlFrame) { cancelAnimationFrame(hlFrame); hlFrame = null; hlPos = null; }
+    _resetTimerDisplay();
+    board   = Array.from({ length: GRID }, () => new Array(GRID).fill(0));
+    history = [];
+    firstPlayer = randomFirst ? (Math.random() < 0.5 ? 1 : 2) : 1;
+    current = firstPlayer;
+    over    = false;
+    winLine = null;
+    pendingUndoReq    = false;
+    pendingRestartReq = false;
+    pendingSwapReq    = false;
+    updateMoveList();
+}
+
+// ═══════════════════════════════════════
+//   DRAW
+// ═══════════════════════════════════════
+function draw() {
+    if (winAnimFrame) return;  // animation loop owns the canvas
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    drawLines();
+    drawStars();
+    drawStones();
+    if (winLine) drawWinLine();
+}
+
+function drawLines() {
+    ctx.strokeStyle = 'rgba(80,50,10,0.7)';
+    ctx.lineWidth   = 1;
+    for (let i = 0; i < GRID; i++) {
+        ctx.beginPath(); ctx.moveTo(PAD, PAD + i * CELL); ctx.lineTo(PAD + (GRID-1)*CELL, PAD + i * CELL); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(PAD + i * CELL, PAD); ctx.lineTo(PAD + i * CELL, PAD + (GRID-1)*CELL); ctx.stroke();
+    }
+    ctx.lineWidth = 2;
+    ctx.strokeRect(PAD, PAD, (GRID-1)*CELL, (GRID-1)*CELL);
+}
+
+function drawStars() {
+    const starMap = {
+        13: [[3,3],[3,9],[9,3],[9,9],[6,6]],
+        15: [[3,3],[3,11],[11,3],[11,11],[7,7]],
+        17: [[3,3],[3,13],[13,3],[13,13],[8,8]],
+        19: [[3,3],[3,9],[3,15],[9,3],[9,9],[9,15],[15,3],[15,9],[15,15]],
+        21: [[4,4],[4,10],[4,16],[10,4],[10,10],[10,16],[16,4],[16,10],[16,16]],
+    };
+    const pts = starMap[GRID] || starMap[15];
+    ctx.fillStyle = 'rgba(80,50,10,0.85)';
+    pts.forEach(([r,c]) => {
+        ctx.beginPath();
+        ctx.arc(PAD + c*CELL, PAD + r*CELL, 4, 0, Math.PI*2);
+        ctx.fill();
+    });
+}
+
+function drawStones() {
+    for (let r = 0; r < GRID; r++) {
+        for (let c = 0; c < GRID; c++) {
+            if (!board[r][c]) continue;
+            const x = PAD + c*CELL, y = PAD + r*CELL;
+            const isB = board[r][c] === 1;
+
+            ctx.shadowColor   = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur    = 8;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 3;
+
+            const g = ctx.createRadialGradient(x - RADIUS*.3, y - RADIUS*.3, RADIUS*.1, x, y, RADIUS);
+            if (isB) { g.addColorStop(0,'#888'); g.addColorStop(1,'#111'); }
+            else     { g.addColorStop(0,'#fff'); g.addColorStop(1,'#ccc'); }
+
+            ctx.beginPath();
+            ctx.arc(x, y, RADIUS, 0, Math.PI*2);
+            ctx.fillStyle = g;
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = ctx.shadowOffsetY = 0;
+
+            // 最后落子标记
+            const last = history[history.length - 1];
+            if (last && last.r === r && last.c === c) {
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, Math.PI*2);
+                ctx.fillStyle = isB ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.4)';
+                ctx.fill();
+            }
+        }
+    }
+}
+
+function drawWinLine() {
+    if (!winLine?.length) return;
+    const f = winLine[0], l = winLine[winLine.length-1];
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,60,60,0.85)';
+    ctx.lineWidth   = 5;
+    ctx.lineCap     = 'round';
+    ctx.shadowColor = 'rgba(255,60,60,0.5)';
+    ctx.shadowBlur  = 14;
+    ctx.beginPath();
+    ctx.moveTo(PAD + f.c*CELL, PAD + f.r*CELL);
+    ctx.lineTo(PAD + l.c*CELL, PAD + l.r*CELL);
+    ctx.stroke();
+    winLine.forEach(({ r, c }) => {
+        ctx.beginPath();
+        ctx.arc(PAD + c*CELL, PAD + r*CELL, RADIUS + 4, 0, Math.PI*2);
+        ctx.strokeStyle = 'rgba(255,215,0,0.85)';
+        ctx.lineWidth   = 3;
+        ctx.shadowColor = 'rgba(255,215,0,0.5)';
+        ctx.shadowBlur  = 18;
+        ctx.stroke();
+    });
+    ctx.restore();
+}
+
+// ═══════════════════════════════════════
+//   WIN CHECK
+// ═══════════════════════════════════════
+function checkWin(r, c, player) {
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for (const [dr, dc] of dirs) {
+        const line = [{ r, c }];
+        for (let d = 1; d <= 4; d++) {
+            const nr = r + dr*d, nc = c + dc*d;
+            if (nr < 0 || nr >= GRID || nc < 0 || nc >= GRID || board[nr][nc] !== player) break;
+            line.push({ r:nr, c:nc });
+        }
+        for (let d = 1; d <= 4; d++) {
+            const nr = r - dr*d, nc = c - dc*d;
+            if (nr < 0 || nr >= GRID || nc < 0 || nc >= GRID || board[nr][nc] !== player) break;
+            line.unshift({ r:nr, c:nc });
+        }
+        if (line.length >= 5) return line.slice(0, 5);
+    }
+    return null;
+}
+
+// ═══════════════════════════════════════
+//   PLACE STONE（本地和 LAN 收到服务器确认后均调用）
+// ═══════════════════════════════════════
+function placeStone(r, c, player) {
+    board[r][c] = player;
+    history.push({ r, c, player });
+    playStoneSound(player === 1);
+    const five = checkWin(r, c, player);
+    if (five) {
+        winLine = five;
+        over    = true;
+        // 通知服务器游戏结束（防止继续接收移动）
+        if (mode === 'lan' && ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'game_over' }));
+        }
+        playWinSound();
+        startWinAnimation();
+        onWin(player);
+        updateMoveList();
+        return true;
+    }
+    current = player === 1 ? 2 : 1;
+    resetMoveDeadline();
+    draw();
+    updateUI();
+    updateMoveList();
+    return false;
+}
+
+function onWin(player) {
+    stopGameTimer();
+    if (mode === 'lan') {
+        if (player === myPlayer) {
+            toast('🎉 恭喜你，获得胜利！', 4000);
+        } else {
+            toast('😔 很遗憾，你输了...', 4000);
+        }
+    }
+    updateUI();
+}
+
+// ═══════════════════════════════════════
+//   CANVAS EVENTS
+// ═══════════════════════════════════════
+canvas.addEventListener('click', e => {
+    if (over) return;
+    if (mode === 'lan' && current !== myPlayer) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const sx = SIZE / rect.width, sy = SIZE / rect.height;
+    const c  = Math.round(((e.clientX - rect.left) * sx - PAD) / CELL);
+    const r  = Math.round(((e.clientY - rect.top)  * sy - PAD) / CELL);
+    if (r < 0 || r >= GRID || c < 0 || c >= GRID || board[r][c]) return;
+
+    if (mode === 'local') {
+        placeStone(r, c, current);
+    } else {
+        ws.send(JSON.stringify({ type: 'move', r, c }));
+    }
+});
+
+canvas.addEventListener('mousemove', e => {
+    if (over || (mode === 'lan' && current !== myPlayer)) {
+        canvas.style.cursor = 'default';
+        return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const sx = SIZE / rect.width, sy = SIZE / rect.height;
+    const c  = Math.round(((e.clientX - rect.left) * sx - PAD) / CELL);
+    const r  = Math.round(((e.clientY - rect.top)  * sy - PAD) / CELL);
+    canvas.style.cursor = (r >= 0 && r < GRID && c >= 0 && c < GRID && !board[r][c]) ? 'pointer' : 'default';
+});
+
+// ═══════════════════════════════════════
+//   UNDO
+// ═══════════════════════════════════════
+function doUndo() {
+    if (over || history.length === 0) return;
+
+    if (mode === 'local') {
+        const last = history.pop();
+        board[last.r][last.c] = 0;
+        current = last.player;
+        resetMoveDeadline();
+        draw(); updateUI(); updateMoveList();
+    } else {
+        // LAN：只能悔自己的最后一步（即当前轮到对方，说明我刚落子）
+        const last = history[history.length - 1];
+        if (last.player !== myPlayer) {
+            toast('只能撤销自己刚落下的棋子');
+            return;
+        }
+        if (pendingUndoReq) return;
+        pendingUndoReq = true;
+        updateUI();
+        ws.send(JSON.stringify({ type: 'undo_req' }));
+        toast('已发送悔棋请求，等待对方回应...');
+    }
+}
+
+// ═══════════════════════════════════════
+//   RESTART
+// ═══════════════════════════════════════
+function doRestart() {
+    if (mode === 'local') {
+        showDialog('🔄', '重新开始', '确定要放弃当前对局，重新开始吗？', '重新开始', '取消', ok => {
+            if (!ok) return;
+            const opp2 = randomOpponent();
+            applyGameProfiles(profiles[0].name, profiles[0].avatar, opp2.name, opp2.avatar);
+            initBoard(true); draw(); updateUI();
+            updateFirstPlayerSub();
+            startGameTimer();
+            const nm2 = ['', `黑方（${profiles[0].name}）`, `白方（${opp2.name}）`];
+            toast(`随机分配：${nm2[firstPlayer]} 先手`, 3200);
+        });
+    } else {
+        if (pendingRestartReq) { toast('已发送重玩请求，请等待...'); return; }
+        pendingRestartReq = true;
+        ws.send(JSON.stringify({ type: 'restart_req' }));
+        toast('已发送重玩请求，等待对方回应...');
+    }
+}
+
+// ═══════════════════════════════════════
+//   RESIGN
+// ═══════════════════════════════════════
+function doResign() {
+    if (over) return;
+    showDialog('🏳️', '认输', '确定要认输吗？认输后本局结束。', '确认认输', '取消', ok => {
+        if (!ok) return;
+        if (mode === 'local') {
+            _showResignResult(current);
+        } else {
+            ws?.send(JSON.stringify({ type: 'resign' }));
+            _showResignResult(myPlayer);
+        }
+    });
+}
+
+function _showResignResult(loser) {
+    if (over) return;
+    over = true;
+    stopGameTimer();
+    winLine = null;
+    draw();
+
+    const winner = loser === 1 ? 2 : 1;
+    document.getElementById('card0').classList.remove('active', 'winner');
+    document.getElementById('card1').classList.remove('active', 'winner');
+    document.getElementById(`card${winner - 1}`).classList.add('winner');
+
+    const names = (mode === 'lan')
+        ? ['', '黑方', '白方']
+        : ['', `黑方（${profiles[0]?.name || '玩家一'}）`, `白方（${profiles[1]?.name || '玩家二'}）`];
+    document.getElementById('status').innerHTML =
+        `<span class="win-text">🏳️ ${names[loser]} 认输</span>`;
+
+    const btnUndo = document.getElementById('btn-undo');
+    if (btnUndo) btnUndo.disabled = true;
+    const btnResign = document.getElementById('btn-resign');
+    if (btnResign) btnResign.disabled = true;
+
+    if (mode === 'lan') {
+        if (loser === myPlayer) toast('🏳️ 你认输了，本局结束', 4000);
+        else                    toast('🎉 对方认输，你获胜！', 4000);
+    } else {
+        toast(`🏳️ ${names[loser]} 认输，${names[winner]} 获胜！`, 4000);
+    }
+}
+
+// ═══════════════════════════════════════
+//   SWAP SIDES
+// ═══════════════════════════════════════
+function doSwap() {
+    if (over) return;
+
+    if (mode === 'local') {
+        showDialog('🔄', '交换执子', '确定要交换黑白执子吗？双方昵称与头像将一并互换。', '确认换边', '取消', ok => {
+            if (!ok) return;
+            _applySwap();
+            toast('✅ 已交换执子', 2000);
+        });
+    } else {
+        if (pendingSwapReq) { toast('已发送换边请求，请等待...'); return; }
+        pendingSwapReq = true;
+        updateUI();
+        ws.send(JSON.stringify({ type: 'swap_req' }));
+        toast('已发送换边请求，等待对方回应...');
+    }
+}
+
+// 执行换边：交换双方头像/昵称显示，并更新 myPlayer（LAN）
+function _applySwap() {
+    // 交换两张玩家卡片上的头像和昵称
+    const av0 = document.getElementById('avatar0').textContent;
+    const av1 = document.getElementById('avatar1').textContent;
+    const nm0 = document.getElementById('pname0').textContent;
+    const nm1 = document.getElementById('pname1').textContent;
+    document.getElementById('avatar0').textContent = av1;
+    document.getElementById('avatar1').textContent = av0;
+    document.getElementById('pname0').textContent  = nm1;
+    document.getElementById('pname1').textContent  = nm0;
+
+    // 同步交换 profiles 内部数据（用于超时/认输提示文字）
+    const tmp = { ...profiles[0] };
+    profiles[0] = { ...profiles[1] };
+    profiles[1] = { ...tmp };
+
+    // LAN 模式：myPlayer 也要互换
+    if (mode === 'lan') {
+        myPlayer = myPlayer === 1 ? 2 : 1;
+        // mine 样式跟随换边
+        document.getElementById('card0').classList.toggle('mine', myPlayer === 1);
+        document.getElementById('card1').classList.toggle('mine', myPlayer === 2);
+    }
+
+    updateUI();
+}
+
+// ═══════════════════════════════════════
+//   BACK TO LOBBY
+// ═══════════════════════════════════════
+function backToLobby() {
+    showDialog('🏠', '回到主页', '确定要离开当前对局吗？', '离开', '取消', ok => {
+        if (!ok) return;
+        stopGameTimer();
+        if (ws) { ws.close(); ws = null; }
+        mode = 'local'; myPlayer = 0;
+        initBoard(); draw();
+        resetGameProfiles();
+        clearChat();
+        document.getElementById('chat-input-row').style.display = 'none';
+        document.querySelector('.aux-tabs').style.display = '';
+        showAuxTab('chat');
+        showScreen('screen-lobby');
+    });
+}
+
+// ═══════════════════════════════════════
+//   UI UPDATE
+// ═══════════════════════════════════════
+function updateUI() {
+    const c0 = document.getElementById('card0');
+    const c1 = document.getElementById('card1');
+    const b0 = document.getElementById('badge0');
+    const b1 = document.getElementById('badge1');
+    const st = document.getElementById('status');
+    const mc = document.getElementById('move-count');
+    const btnUndo    = document.getElementById('btn-undo');
+    const btnSwap    = document.getElementById('btn-swap');
+    const btnRestart = document.getElementById('btn-restart');
+    const btnResign  = document.getElementById('btn-resign');
+
+    c0.classList.remove('active', 'winner');
+    c1.classList.remove('active', 'winner');
+    b0.style.display = 'none';
+    b1.style.display = 'none';
+
+    mc.textContent = `第 ${history.length} 手`;
+
+    if (over) {
+        const winP = winLine ? board[winLine[0].r][winLine[0].c] : 0;
+        if (winP === 1) c0.classList.add('winner');
+        if (winP === 2) c1.classList.add('winner');
+        const nm = ['', '黑方（玩家一）', '白方（玩家二）'];
+        if (mode === 'lan') {
+            const lnm = ['', '黑方', '白方'];
+            st.innerHTML = `<span class="win-text">🎉 ${lnm[winP]} 获胜！</span>`;
+        } else {
+            st.innerHTML = `<span class="win-text">🎉 ${nm[winP]} 获胜！</span>`;
+        }
+        btnUndo.disabled    = true;
+        btnSwap.disabled    = true;
+        btnResign.disabled  = true;
+        btnRestart.disabled = false;
+        return;
+    }
+
+    if (current === 1) { c0.classList.add('active'); b0.style.display = ''; }
+    else               { c1.classList.add('active'); b1.style.display = ''; }
+
+    if (mode === 'local') {
+        const nm = ['', '黑方（玩家一）', '白方（玩家二）'];
+        st.textContent   = `${nm[current]} 落子中...`;
+        btnUndo.disabled = history.length === 0;
+    } else {
+        const nm = ['', '黑方', '白方'];
+        if (current === myPlayer) {
+            st.textContent = `轮到你（${nm[myPlayer]}）落子`;
+        } else {
+            st.textContent = `等待对手（${nm[3 - myPlayer]}）落子...`;
+        }
+        // 悔棋：只有当我刚落子（上一步是我的）且无待定请求时可用
+        const lastIsMine = history.length > 0 && history[history.length - 1].player === myPlayer;
+        btnUndo.disabled = !lastIsMine || pendingUndoReq;
+    }
+    btnSwap.disabled    = pendingSwapReq;
+    btnResign.disabled  = false;
+    btnRestart.disabled = false;
+}
+
+// ═══════════════════════════════════════
+//   GRID SIZE SELECTION
+// ═══════════════════════════════════════
+function selectSize(n) {
+    selectedGrid = n;
+    document.querySelectorAll('.size-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.size) === n);
+    });
+}
+
+function applyGridSize() {
+    const cfg = BOARD_CONFIGS[selectedGrid];
+    GRID   = selectedGrid;
+    CELL   = cfg.cell;
+    PAD    = cfg.pad;
+    RADIUS = cfg.radius;
+    SIZE   = PAD * 2 + CELL * (GRID - 1);
+    canvas.width = canvas.height = SIZE;
+}
+
+function updateFirstPlayerSub() {
+    document.getElementById('psub0').textContent = firstPlayer === 1 ? '执黑先行' : '执黑后行';
+    document.getElementById('psub1').textContent = firstPlayer === 2 ? '执白先行' : '执白后行';
+}
+
+// ═══════════════════════════════════════
+//   LOCAL MODE ENTRY
+// ═══════════════════════════════════════
+function startLocal() {
+    mode = 'local'; myPlayer = 0;
+    applyGridSize();
+    const opp = randomOpponent();
+    applyGameProfiles(profiles[0].name, profiles[0].avatar, opp.name, opp.avatar);
+    document.getElementById('card0').classList.remove('mine');
+    document.getElementById('card1').classList.remove('mine');
+    document.getElementById('lan-tag').style.display = 'none';
+    document.getElementById('chat-input-row').style.display = 'none';
+    // 本地模式隐藏聊天区，直接展示落子记录（无 Tab 条）
+    document.querySelector('.aux-tabs').style.display = 'none';
+    document.getElementById('aux-chat').style.display  = 'none';
+    document.getElementById('aux-moves').style.display = '';
+    clearChat();
+    initBoard(true); draw(); updateUI();
+    updateFirstPlayerSub();
+    startGameTimer();
+    showScreen('screen-game');
+    const nm = ['', `黑方（${profiles[0].name}）`, `白方（${opp.name}）`];
+    toast(`随机分配：${nm[firstPlayer]} 先手`, 3200);
+}
+
+// ═══════════════════════════════════════
+//   LAN MODE ENTRY
+// ═══════════════════════════════════════
+function startLan() {
+    if (window.location.protocol === 'file:') {
+        showDialog('⚠️', '需要通过服务器访问',
+            '局域网对战需要先运行服务器：\n\n1. npm install ws\n2. node gomoku-server.js\n3. 用浏览器打开终端显示的地址',
+            '知道了', null, () => {});
+        return;
+    }
+    document.getElementById('join-input').value  = '';
+    document.getElementById('join-error').textContent = '';
+    // 重置统计为加载中
+    const elO = document.getElementById('stat-online');
+    const elR = document.getElementById('stat-rooms');
+    if (elO) elO.textContent = '--';
+    if (elR) elR.textContent = '--';
+    renderRoomList([]);   // 重置为空，等服务器推送
+    showScreen('screen-lan-lobby');
+    // 连接后主动拉取统计与房间列表
+    connectWS(() => {
+        ws.send(JSON.stringify({ type: 'ping_stats' }));
+        ws.send(JSON.stringify({ type: 'ping_rooms' }));
+    });
+}
+
+let _roomPublic = true;   // 创建房间时是否公开
+
+function setRoomVisibility(pub) {
+    _roomPublic = pub;
+    document.getElementById('vis-public') .classList.toggle('active',  pub);
+    document.getElementById('vis-private').classList.toggle('active', !pub);
+}
+
+function createRoom() {
+    const prof = { name: profiles[0].name, avatar: profiles[0].avatar };
+    connectWS(() => ws.send(JSON.stringify({ type: 'create', profile: prof, public: _roomPublic })));
+}
+
+function joinRoom() {
+    const code = document.getElementById('join-input').value.trim().toUpperCase();
+    document.getElementById('join-error').textContent = '';
+    if (code.length !== 4) {
+        document.getElementById('join-error').textContent = '请输入 4 位房间号';
+        return;
+    }
+    const prof = { name: profiles[0].name, avatar: profiles[0].avatar };
+    connectWS(() => ws.send(JSON.stringify({ type: 'join', room: code, profile: prof })));
+}
+
+function joinPublicRoom(id) {
+    document.getElementById('join-error').textContent = '';
+    const prof = { name: profiles[0].name, avatar: profiles[0].avatar };
+    connectWS(() => ws.send(JSON.stringify({ type: 'join', room: id, profile: prof })));
+}
+
+function renderRoomList(roomArr) {
+    const el = document.getElementById('pub-rooms-list');
+    if (!el) return;
+    if (!roomArr || roomArr.length === 0) {
+        el.innerHTML = '<div class="pub-room-empty">暂无公开房间</div>';
+        return;
+    }
+    el.innerHTML = roomArr.map(r => {
+        const av  = AVATARS[r.host?.avatar ?? 5] ?? '🎮';
+        const nm  = r.host?.name ?? '房主';
+        return `<div class="pub-room-item">
+            <div class="pub-room-av">${av}</div>
+            <div class="pub-room-info">
+                <div class="pub-room-name">${nm}</div>
+                <div class="pub-room-code">房间号：${r.id}</div>
+            </div>
+            <button class="pub-room-join" onclick="joinPublicRoom('${r.id}')">加 入</button>
+        </div>`;
+    }).join('');
+}
+
+function cancelWaiting() {
+    if (ws) { ws.close(); ws = null; }
+    showScreen('screen-lan-lobby');
+}
+
+// ═══════════════════════════════════════
+//   WEBSOCKET CLIENT
+// ═══════════════════════════════════════
+function connectWS(onOpen) {
+    if (ws && ws.readyState === WebSocket.OPEN) { onOpen(); return; }
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${window.location.host}`);
+    ws.onopen    = onOpen;
+    ws.onmessage = e => { try { handleWS(JSON.parse(e.data)); } catch {} };
+    ws.onerror   = ()  => {
+        document.getElementById('join-error').textContent = '连接失败，请确认服务器正在运行';
+        showScreen('screen-lan-lobby');
+    };
+    ws.onclose = () => {
+        if (document.getElementById('screen-game').classList.contains('show')) {
+            // 仅在游戏中才提示断线（正常退出不提示）
+        }
+    };
+}
+
+function handleWS(msg) {
+    switch (msg.type) {
+
+        // 房间创建成功
+        case 'created': {
+            document.getElementById('wait-code').textContent = msg.room;
+            showScreen('screen-waiting');
+            break;
+        }
+
+        // 双方就绪，游戏开始
+        case 'start': {
+            myPlayer = msg.player;
+            mode     = 'lan';
+            initBoard();
+            // 服务端随机先手
+            firstPlayer = msg.firstPlayer || 1;
+            current     = firstPlayer;
+            const myP  = profiles[0];
+            const opp  = msg.oppProfile || { name: '对手', avatar: 5 };
+            if (myPlayer === 1) {
+                applyGameProfiles(myP.name, myP.avatar, opp.name, opp.avatar);
+                document.getElementById('card0').classList.add('mine');
+                document.getElementById('card1').classList.remove('mine');
+            } else {
+                applyGameProfiles(opp.name, opp.avatar, myP.name, myP.avatar);
+                document.getElementById('card0').classList.remove('mine');
+                document.getElementById('card1').classList.add('mine');
+            }
+            document.getElementById('lan-tag').style.display = '';
+            // 局域网模式恢复聊天区与 Tab 条
+            document.querySelector('.aux-tabs').style.display = '';
+            clearChat();
+            document.getElementById('chat-input-row').style.display = '';
+            showAuxTab('chat');
+            appendChatSys('── 对话已开启，可随时发送消息 ──');
+            draw(); updateUI();
+            startGameTimer();
+            showScreen('screen-game');
+            const firstIsMe = firstPlayer === myPlayer;
+            const roleHint  = myPlayer === 1 ? '你执黑' : '你执白';
+            toast(firstIsMe ? `${roleHint}，随机先手，请落子！` : `${roleHint}，对方先手，请等待…`, 3500);
+            break;
+        }
+
+        // 服务器广播落子（含自己）
+        case 'move': {
+            placeStone(msg.r, msg.c, msg.player);
+            if (!over && msg.player !== myPlayer) {
+                toast('对方已落子，轮到你了！');
+            }
+            break;
+        }
+
+        // 悔棋成功（服务器广播）
+        case 'undo': {
+            board[msg.r][msg.c] = 0;
+            history.pop();
+            current = msg.newCurrent;
+            pendingUndoReq = false;
+            resetMoveDeadline();
+            draw(); updateUI(); updateMoveList();
+            toast('悔棋成功');
+            break;
+        }
+
+        // 对方请求悔棋
+        case 'undo_req': {
+            showDialog('🤔', '对方请求悔棋',
+                '对方希望撤销上一步棋，是否同意？',
+                '同意', '拒绝',
+                ok => ws.send(JSON.stringify({ type: ok ? 'undo_ok' : 'undo_no' }))
+            );
+            break;
+        }
+
+        // 悔棋被拒绝
+        case 'undo_no': {
+            pendingUndoReq = false;
+            updateUI();
+            toast('对方拒绝了悔棋请求');
+            break;
+        }
+
+        // 重玩成功（服务器广播）
+        case 'restart': {
+            hideDialog();
+            initBoard();
+            firstPlayer = msg.firstPlayer || 1;
+            current     = firstPlayer;
+            draw(); updateUI(); updateMoveList();
+            startGameTimer();
+            appendChatSys('── 新一局开始 ──');
+            const restartFirstIsMe = firstPlayer === myPlayer;
+            toast(restartFirstIsMe ? '新一局开始，随机先手轮到你，请落子！' : '新一局开始，随机先手轮到对方，请等待…', 3500);
+            break;
+        }
+
+        // 对方请求重玩
+        case 'restart_req': {
+            showDialog('🔄', '对方请求重玩',
+                '对方希望重新开始一局，是否同意？',
+                '同意', '拒绝',
+                ok => ws.send(JSON.stringify({ type: ok ? 'restart_ok' : 'restart_no' }))
+            );
+            break;
+        }
+
+        // 重玩被拒绝
+        case 'restart_no': {
+            pendingRestartReq = false;
+            toast('对方拒绝了重玩请求');
+            break;
+        }
+
+        // 对手断线
+        case 'opp_left': {
+            over = true;
+            stopGameTimer();
+            hideDialog();
+            showDialog('😢', '对手已离线',
+                '对方断开了连接，本局游戏结束。',
+                '回到主页', null,
+                () => {
+                    if (ws) { ws.close(); ws = null; }
+                    mode = 'local'; myPlayer = 0;
+                    initBoard(); draw();
+                    resetGameProfiles();
+                    clearChat();
+                    document.getElementById('chat-input-row').style.display = 'none';
+                    document.querySelector('.aux-tabs').style.display = '';
+                    showAuxTab('chat');
+                    showScreen('screen-lobby');
+                }
+            );
+            break;
+        }
+
+        // 服务器错误
+        case 'error': {
+            document.getElementById('join-error').textContent = msg.msg || '操作失败';
+            if (ws) { ws.close(); ws = null; }
+            break;
+        }
+
+        // 对方发来聊天消息
+        case 'chat': {
+            const oppCardIdx = myPlayer === 1 ? 1 : 0;
+            const oppName    = document.getElementById(`pname${oppCardIdx}`).textContent;
+            appendChatMsg(msg.text, false, oppName);
+            break;
+        }
+
+        // 超时判负（服务器广播）
+        case 'timeout': {
+            if (!over) _showTimeoutResult(msg.loser);
+            break;
+        }
+
+        // 对方认输
+        case 'resign': {
+            if (!over) _showResignResult(msg.loser);
+            break;
+        }
+
+        // 对方请求换边
+        case 'swap_req': {
+            showDialog('🔄', '对方请求换边',
+                '对方希望交换黑白执子，是否同意？',
+                '同意', '拒绝',
+                ok => ws.send(JSON.stringify({ type: ok ? 'swap_ok' : 'swap_no' }))
+            );
+            break;
+        }
+
+        // 换边成功（服务器广播）
+        case 'swap': {
+            _applySwap();
+            pendingSwapReq = false;
+            toast('✅ 双方已交换执子', 2500);
+            break;
+        }
+
+        // 换边被拒绝
+        case 'swap_no': {
+            pendingSwapReq = false;
+            updateUI();
+            toast('对方拒绝了换边请求');
+            break;
+        }
+
+        // 大厅统计推送
+        case 'stats': {
+            const elO = document.getElementById('stat-online');
+            const elR = document.getElementById('stat-rooms');
+            if (elO) elO.textContent = msg.online ?? '--';
+            if (elR) elR.textContent = msg.rooms  ?? '--';
+            break;
+        }
+
+        // 公开房间列表推送
+        case 'room_list': {
+            renderRoomList(msg.rooms);
+            break;
+        }
+    }
+}
+
+// ═══════════════════════════════════════
+//   AUX PANEL (记录 / 聊天 Tab)
+// ═══════════════════════════════════════
+let _auxTab     = 'chat';   // 默认展示聊天
+let _chatUnread = 0;
+
+function showAuxTab(tab) {
+    _auxTab = tab;
+    document.getElementById('aux-moves').style.display = tab === 'moves' ? '' : 'none';
+    document.getElementById('aux-chat').style.display  = tab === 'chat'  ? '' : 'none';
+    document.querySelectorAll('.aux-tab').forEach((el, i) =>
+        el.classList.toggle('active', (i === 0) === (tab === 'chat')));
+    if (tab === 'chat') {
+        _chatUnread = 0;
+        _updateChatBadge();
+        const cl = document.getElementById('chat-list');
+        if (cl) cl.scrollTop = cl.scrollHeight;
+    }
+}
+
+function _updateChatBadge() {
+    const b = document.getElementById('chat-badge');
+    if (!b) return;
+    b.style.display   = _chatUnread > 0 ? 'flex' : 'none';
+    b.textContent     = _chatUnread > 9 ? '9+' : String(_chatUnread);
+}
+
+function _escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function appendChatMsg(text, isMine, senderName) {
+    const list  = document.getElementById('chat-list');
+    if (!list) return;
+    document.getElementById('chat-empty')?.remove();
+    const div   = document.createElement('div');
+    div.className = 'chat-msg ' + (isMine ? 'mine' : 'theirs');
+    div.innerHTML =
+        `<div class="chat-sender">${_escHtml(senderName)}</div>` +
+        `<div class="chat-bubble">${_escHtml(text)}</div>`;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+    if (!isMine && _auxTab !== 'chat') {
+        _chatUnread++;
+        _updateChatBadge();
+    }
+}
+
+function appendChatSys(text) {
+    const list = document.getElementById('chat-list');
+    if (!list) return;
+    const div  = document.createElement('div');
+    div.className   = 'chat-sys';
+    div.textContent = text;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+}
+
+function clearChat() {
+    const list = document.getElementById('chat-list');
+    if (list) list.innerHTML = '<div class="chat-empty" id="chat-empty">暂无消息</div>';
+    _chatUnread = 0;
+    _updateChatBadge();
+}
+
+function sendChat() {
+    if (mode !== 'lan' || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const input = document.getElementById('chat-input');
+    const text  = input.value.trim();
+    if (!text) return;
+    ws.send(JSON.stringify({ type: 'chat', text }));
+    input.value = '';
+    input.focus();
+    appendChatMsg(text, true, profiles[0].name);
+}
+
+// ═══════════════════════════════════════
+//   MOVE LIST
+// ═══════════════════════════════════════
+function updateMoveList() {
+    const el = document.getElementById('move-list');
+    if (!el) return;
+    if (history.length === 0) {
+        el.innerHTML = '<div class="move-list-empty">暂无记录</div>';
+        return;
+    }
+    const winSet = new Set((winLine || []).map(p => `${p.r},${p.c}`));
+    el.innerHTML = '';
+    history.forEach((h, i) => {
+        const isLatest = i === history.length - 1;
+        const isWin    = winSet.has(`${h.r},${h.c}`);
+        const col      = String.fromCharCode(65 + h.c); // A=0, B=1 ...
+        const row      = h.r + 1;
+        const item = document.createElement('div');
+        item.className = 'move-item' +
+            (isLatest ? ' latest' : '') +
+            (isWin    ? ' is-win' : '');
+        item.innerHTML =
+            `<span class="move-num">${i + 1}</span>` +
+            `<span class="move-dot ${h.player === 1 ? 'black' : 'white'}"></span>` +
+            `<span class="move-coord">${col}${row}</span>`;
+        item.addEventListener('click', () => highlightStone(h.r, h.c));
+        el.appendChild(item);
+    });
+    el.scrollTop = el.scrollHeight;
+}
+
+// ═══════════════════════════════════════
+//   STONE HIGHLIGHT (click from move list)
+// ═══════════════════════════════════════
+let hlFrame = null;
+let hlAlpha = 0;
+let hlPos   = null;
+
+function highlightStone(r, c) {
+    if (winAnimFrame) return;
+    if (hlFrame) { cancelAnimationFrame(hlFrame); hlFrame = null; }
+    hlPos   = { r, c };
+    hlAlpha = 1.0;
+
+    function tick() {
+        if (winAnimFrame) { hlFrame = null; hlPos = null; return; }
+        draw();
+        if (hlAlpha > 0 && hlPos) {
+            const x = PAD + hlPos.c * CELL;
+            const y = PAD + hlPos.r * CELL;
+            ctx.save();
+            // Cyan ring
+            ctx.beginPath();
+            ctx.arc(x, y, RADIUS + 7, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(125,232,255,${hlAlpha * 0.9})`;
+            ctx.lineWidth   = 3;
+            ctx.shadowColor = 'rgba(125,232,255,0.9)';
+            ctx.shadowBlur  = 22;
+            ctx.stroke();
+            // Second outer ring
+            ctx.beginPath();
+            ctx.arc(x, y, RADIUS + 13, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(125,232,255,${hlAlpha * 0.35})`;
+            ctx.lineWidth   = 1.5;
+            ctx.shadowBlur  = 0;
+            ctx.stroke();
+            // Inner tint
+            ctx.beginPath();
+            ctx.arc(x, y, RADIUS, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(125,232,255,${hlAlpha * 0.22})`;
+            ctx.fill();
+            ctx.restore();
+            hlAlpha -= 0.022;
+            hlFrame  = requestAnimationFrame(tick);
+        } else {
+            hlFrame = null; hlPos = null;
+            draw();
+        }
+    }
+    hlFrame = requestAnimationFrame(tick);
+}
+
+// ═══════════════════════════════════════
+//   AUDIO  (Web Audio API — no files)
+// ═══════════════════════════════════════
+let _ac = null;
+function getAC() {
+    if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (_ac.state === 'suspended') _ac.resume();
+    return _ac;
+}
+
+function playStoneSound(isBlack) {
+    try {
+        const ac  = getAC();
+        const len = Math.floor(ac.sampleRate * 0.13);
+        const buf = ac.createBuffer(1, len, ac.sampleRate);
+        const d   = buf.getChannelData(0);
+        for (let i = 0; i < len; i++)
+            d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6);
+        const src  = ac.createBufferSource(); src.buffer = buf;
+        const filt = ac.createBiquadFilter();
+        filt.type = 'bandpass';
+        filt.frequency.value = isBlack ? 550 : 900;
+        filt.Q.value = 1.0;
+        const gain = ac.createGain();
+        gain.gain.setValueAtTime(1.0, ac.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.13);
+        src.connect(filt); filt.connect(gain); gain.connect(ac.destination);
+        src.start();
+    } catch(e) {}
+}
+
+function playBtnSound() {
+    try {
+        const ac = getAC();
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1100, ac.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(750, ac.currentTime + 0.07);
+        gain.gain.setValueAtTime(0.12, ac.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.09);
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.start(); osc.stop(ac.currentTime + 0.1);
+    } catch(e) {}
+}
+
+function playWinSound() {
+    try {
+        const ac = getAC();
+        // Triumphant rising arpeggio: C5 E5 G5 C6 + sparkle hit
+        [[523.25,0],[659.25,0.13],[783.99,0.26],[1046.5,0.39],[1318.5,0.52]].forEach(([freq,t]) => {
+            const osc  = ac.createOscillator();
+            const gain = ac.createGain();
+            const now  = ac.currentTime + t;
+            osc.type = t < 0.4 ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.25, now + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + (t > 0.4 ? 0.9 : 0.35));
+            osc.connect(gain); gain.connect(ac.destination);
+            osc.start(now); osc.stop(now + 1.1);
+        });
+        // High shimmer noise
+        const buf = ac.createBuffer(1, ac.sampleRate * 0.25, ac.sampleRate);
+        const d   = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++)
+            d[i] = (Math.random()*2-1) * Math.pow(1-i/d.length,2) * 0.4;
+        const src  = ac.createBufferSource(); src.buffer = buf;
+        const hi   = ac.createBiquadFilter(); hi.type = 'highpass'; hi.frequency.value = 5000;
+        const gn   = ac.createGain();
+        const t0   = ac.currentTime + 0.55;
+        gn.gain.setValueAtTime(0.5, t0);
+        gn.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25);
+        src.connect(hi); hi.connect(gn); gn.connect(ac.destination);
+        src.start(t0);
+    } catch(e) {}
+}
+
+// ═══════════════════════════════════════
+//   WIN ANIMATION
+// ═══════════════════════════════════════
+let winAnimFrame   = null;
+let winParticles   = [];
+let winAnimElapsed = 0;
+let _winLastTs     = null;
+
+function createWinParticles() {
+    const list   = [];
+    const colors = ['#ffd700','#ffcc00','#ff8c00','#fff6a0','#ffffff','#ffe680'];
+    if (!winLine) return list;
+    winLine.forEach(({ r, c }) => {
+        const x = PAD + c * CELL, y = PAD + r * CELL;
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd   = 0.6 + Math.random() * 3.2;
+            list.push({
+                x, y,
+                vx: Math.cos(angle) * spd,
+                vy: Math.sin(angle) * spd - 1.2,
+                life:  1,
+                decay: 0.007 + Math.random() * 0.011,
+                size:  1.5 + Math.random() * 2.8,
+                color: colors[Math.floor(Math.random() * colors.length)],
+            });
+        }
+    });
+    return list;
+}
+
+function drawAnimatedWinLine(elapsed) {
+    if (!winLine?.length) return;
+    const f  = winLine[0], l = winLine[winLine.length - 1];
+    const fx = PAD + f.c * CELL, fy = PAD + f.r * CELL;
+    const lx = PAD + l.c * CELL, ly = PAD + l.r * CELL;
+
+    // 1. Growing red line (0→350ms)
+    const lp = Math.min(1, elapsed / 350);
+    ctx.save();
+    ctx.lineCap     = 'round';
+    ctx.lineWidth   = 5 + Math.sin(elapsed * 0.007) * 1.5;
+    ctx.strokeStyle = 'rgba(255,50,50,0.92)';
+    ctx.shadowColor = 'rgba(255,80,60,0.85)';
+    ctx.shadowBlur  = 18 + Math.sin(elapsed * 0.006) * 8;
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(fx + (lx - fx) * lp, fy + (ly - fy) * lp);
+    ctx.stroke();
+    ctx.restore();
+
+    // 2. Gold rings + expanding ripple on each winning stone (starts at 160ms, staggered)
+    if (elapsed > 160) {
+        winLine.forEach(({ r, c }, idx) => {
+            const x = PAD + c * CELL, y = PAD + r * CELL;
+            const t = Math.max(0, elapsed - 160 - idx * 55);
+            if (t <= 0) return;
+            const pulse = (Math.sin(t * 0.007) + 1) / 2;
+
+            // Pulsing gold halo
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, RADIUS + 5 + pulse * 6, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255,215,0,${0.65 + pulse * 0.35})`;
+            ctx.lineWidth   = 2.5 + pulse * 1.5;
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur  = 22 + pulse * 18;
+            ctx.stroke();
+            ctx.restore();
+
+            // Expanding ripple ring (repeats every 680ms)
+            const cycle  = (t % 680) / 680;
+            const rippleR = RADIUS + cycle * CELL * 0.72;
+            const alpha   = (1 - cycle) * 0.55;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, rippleR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255,215,0,${alpha})`;
+            ctx.lineWidth   = 2;
+            ctx.stroke();
+            ctx.restore();
+
+            // Inner bright flash (first 200ms per stone)
+            if (t < 200) {
+                const flashA = (1 - t / 200) * 0.45;
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255,255,200,${flashA})`;
+                ctx.fill();
+                ctx.restore();
+            }
+        });
+    }
+}
+
+function drawAndUpdateParticles() {
+    winParticles.forEach(p => {
+        if (p.life <= 0) return;
+        p.x   += p.vx;
+        p.y   += p.vy;
+        p.vy  += 0.055;
+        p.vx  *= 0.975;
+        p.life -= p.decay;
+        if (p.life <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle   = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur  = 9;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * Math.max(0.1, p.life), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+}
+
+function startWinAnimation() {
+    cancelWinAnim();
+    winParticles   = createWinParticles();
+    winAnimElapsed = 0;
+    _winLastTs     = null;
+
+    function tick(ts) {
+        if (!_winLastTs) _winLastTs = ts;
+        winAnimElapsed += ts - _winLastTs;
+        _winLastTs = ts;
+
+        ctx.clearRect(0, 0, SIZE, SIZE);
+        drawLines();
+        drawStars();
+        drawStones();
+        drawAnimatedWinLine(winAnimElapsed);
+        drawAndUpdateParticles();
+
+        if (winAnimElapsed < 4200) {
+            winAnimFrame = requestAnimationFrame(tick);
+        } else {
+            winAnimFrame = null;
+            draw();
+        }
+    }
+    winAnimFrame = requestAnimationFrame(tick);
+}
+
+function cancelWinAnim() {
+    if (winAnimFrame) { cancelAnimationFrame(winAnimFrame); winAnimFrame = null; }
+    winParticles = []; winAnimElapsed = 0; _winLastTs = null;
+}
+
+// ═══════════════════════════════════════
+//   GAME TIMER
+// ═══════════════════════════════════════
+const MOVE_TIMEOUT_SEC = 60;
+let _gameStartTime = null;
+let _moveDeadline  = null;
+let _timerIv       = null;
+
+function startGameTimer() {
+    _gameStartTime = Date.now();
+    _moveDeadline  = Date.now() + MOVE_TIMEOUT_SEC * 1000;
+    clearInterval(_timerIv);
+    _timerIv = setInterval(_timerTick, 500);
+    _timerTick();
+}
+
+function stopGameTimer() {
+    clearInterval(_timerIv);
+    _timerIv = null;
+}
+
+function resetMoveDeadline() {
+    _moveDeadline = Date.now() + MOVE_TIMEOUT_SEC * 1000;
+    const cdEl = document.getElementById('move-countdown');
+    cdEl.textContent = MOVE_TIMEOUT_SEC;
+    cdEl.classList.remove('warn', 'danger');
+}
+
+function _timerTick() {
+    if (!_gameStartTime) return;
+
+    // 对局时长
+    const elapsed = Date.now() - _gameStartTime;
+    const totalS  = Math.floor(elapsed / 1000);
+    const mm = String(Math.floor(totalS / 60)).padStart(2, '0');
+    const ss = String(totalS % 60).padStart(2, '0');
+    document.getElementById('game-duration').textContent = mm + ':' + ss;
+
+    // 落子倒计时
+    if (over || !_moveDeadline) return;
+    const remaining = Math.max(0, Math.ceil((_moveDeadline - Date.now()) / 1000));
+    const cdEl = document.getElementById('move-countdown');
+    cdEl.textContent = remaining;
+    cdEl.classList.remove('warn', 'danger');
+    if      (remaining <= 10) cdEl.classList.add('danger');
+    else if (remaining <= 20) cdEl.classList.add('warn');
+
+    if (remaining === 0) {
+        _moveDeadline = null;   // 防止重复触发
+        _handleMoveTimeout();
+    }
+}
+
+function _resetTimerDisplay() {
+    stopGameTimer();
+    _gameStartTime = null;
+    _moveDeadline  = null;
+    const dur = document.getElementById('game-duration');
+    if (dur) dur.textContent = '00:00';
+    const cd  = document.getElementById('move-countdown');
+    if (cd)  { cd.textContent = MOVE_TIMEOUT_SEC; cd.classList.remove('warn','danger'); }
+}
+
+function _handleMoveTimeout() {
+    if (over) return;
+    over = true;
+    stopGameTimer();
+
+    const loser  = current;
+    const winner = loser === 1 ? 2 : 1;
+
+    if (mode === 'local') {
+        _showTimeoutResult(loser);
+    } else {
+        // 局域网：当前玩家超时由自己上报，对方也会报一份，服务器只取第一条
+        ws?.send(JSON.stringify({ type: 'timeout', loser: current }));
+        _showTimeoutResult(loser);
+    }
+}
+
+function _showTimeoutResult(loser) {
+    over = true;
+    stopGameTimer();
+    winLine = null;
+    draw();
+
+    const winner = loser === 1 ? 2 : 1;
+    // 更新玩家卡片状态
+    document.getElementById('card0').classList.remove('active', 'winner');
+    document.getElementById('card1').classList.remove('active', 'winner');
+    document.getElementById(`card${winner - 1}`).classList.add('winner');
+
+    // 状态文字
+    const names = (mode === 'lan')
+        ? ['', '黑方', '白方']
+        : ['', `黑方（${profiles[0]?.name || '玩家一'}）`, `白方（${profiles[1]?.name || '玩家二'}）`];
+    document.getElementById('status').innerHTML =
+        `<span class="win-text">⏰ ${names[loser]} 超时判负</span>`;
+
+    // 按钮状态
+    const btnUndo = document.getElementById('btn-undo');
+    if (btnUndo) btnUndo.disabled = true;
+
+    // 倒计时显示 0 并保持红色
+    const cdEl = document.getElementById('move-countdown');
+    if (cdEl) { cdEl.textContent = '0'; cdEl.classList.add('danger'); }
+
+    if (mode === 'lan') {
+        if (loser === myPlayer) toast('⏰ 你超时了，判负！', 4000);
+        else                    toast('⏰ 对方超时，你获胜！', 4000);
+    } else {
+        toast(`⏰ ${names[loser]} 超时，${names[winner]} 获胜！`, 4000);
+    }
+}
+
+// ═══════════════════════════════════════
+//   INIT
+// ═══════════════════════════════════════
+updateLobbyProfiles();
+initBoard();
+draw();
+</script>
+</body>
+</html>

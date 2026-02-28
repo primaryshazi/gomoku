@@ -1,0 +1,30 @@
+# 依赖
+node_modules/
+
+# 打包输出
+dist/
+
+# Electron 打包缓存
+.cache/
+
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
+*.suo
+*.user
+
+# 图标源文件（如有 PSD/AI 等）
+*.psd
+*.ai
+
+node_modules/
