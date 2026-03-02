@@ -38,8 +38,27 @@ function genRoomId() {
 }
 
 // ─── 房间数据结构 ───
-// rooms: Map<roomId, { players: [ws|null, ws|null], history: [], current: 1|2, over: bool }>
+// rooms: Map<roomId, { players: [ws|null, ws|null], history: [], current: 1|2, over: bool, gridSize: number }>
 const rooms = new Map();
+
+// ─── 随机匹配队列 ───
+// matchQueue: Map<gridSize, ws>  每种棋盘大小最多一个等待者
+const matchQueue = new Map();
+
+const VALID_SIZES = new Set([13, 15, 17, 19, 21]);
+function sanitizeGridSize(n) {
+    return VALID_SIZES.has(n) ? n : 15;
+}
+
+// 启动两人对局（match/join 公用）
+function startRoom(rid, r, ws1, ws2, profile1, profile2, gridSize) {
+    const firstPlayer = Math.random() < 0.5 ? 1 : 2;
+    r.current = firstPlayer;
+    send(ws1, { type: 'start', player: 1, oppProfile: profile2, firstPlayer, gridSize });
+    send(ws2, { type: 'start', player: 2, oppProfile: profile1, firstPlayer, gridSize });
+    broadcastStats();
+    broadcastRoomList();
+}
 
 function sanitizeProfile(p) {
     if (!p || typeof p !== 'object') return { name: '对手', avatar: 5 };
@@ -82,7 +101,7 @@ wss.on('connection', (ws) => {
 
         // ── 主动请求统计（进入大厅时） ──
         if (msg.type === 'ping_stats') {
-            send(ws, { type: 'stats', online: wss.clients.size, rooms: rooms.size });
+            send(ws, { type: 'stats', online: wss.clients.size, rooms: getPlayingRoomCount() });
             return;
         }
 
@@ -96,12 +115,14 @@ wss.on('connection', (ws) => {
 
         // ── 创建房间 ──
         if (msg.type === 'create') {
+            const gridSize = sanitizeGridSize(msg.gridSize);
             let rid;
             do { rid = genRoomId(); } while (rooms.has(rid));
             rooms.set(rid, {
                 players: [ws, null],
                 history: [], current: 1, over: false,
-                public: msg.public !== false,   // 默认公开
+                public: msg.public !== false,
+                gridSize,
             });
             ws.roomId = rid;
             ws.pi = 0;
@@ -128,12 +149,72 @@ wss.on('connection', (ws) => {
             ws.roomId = rid;
             ws.pi = 1;
             ws.profile = sanitizeProfile(msg.profile);
-            const firstPlayer = Math.random() < 0.5 ? 1 : 2;
-            r.current = firstPlayer;
-            send(r.players[0], { type: 'start', player: 1, oppProfile: ws.profile,    firstPlayer });
-            send(r.players[1], { type: 'start', player: 2, oppProfile: r.players[0].profile, firstPlayer });
+            startRoom(rid, r, r.players[0], ws, r.players[0].profile, ws.profile, r.gridSize);
+            return;
+        }
+
+        // ── 随机匹配 ──
+        if (msg.type === 'match') {
+            const gridSize = sanitizeGridSize(msg.gridSize);
+            ws.profile = sanitizeProfile(msg.profile);
+            ws.matchGridSize = gridSize;
+
+            // 优先 1：公开等待中的房间（create 创建的）
+            for (const [rid, r] of rooms) {
+                if (r.public && !r.players[1] && r.gridSize === gridSize) {
+                    r.players[1] = ws;
+                    ws.roomId = rid;
+                    ws.pi = 1;
+                    startRoom(rid, r, r.players[0], ws, r.players[0].profile, ws.profile, gridSize);
+                    return;
+                }
+            }
+
+            // 优先 2：匹配队列里已有等待者
+            const waiter = matchQueue.get(gridSize);
+            if (waiter && waiter !== ws && waiter.readyState === WebSocket.OPEN) {
+                matchQueue.delete(gridSize);
+                const rid = waiter.roomId;
+                const r   = rooms.get(rid);
+                if (r && !r.players[1]) {
+                    r.players[1] = ws;
+                    ws.roomId    = rid;
+                    ws.pi        = 1;
+                    startRoom(rid, r, waiter, ws, waiter.profile, ws.profile, gridSize);
+                    return;
+                }
+            }
+
+            // 优先 3：创建匹配房间并等待
+            let rid;
+            do { rid = genRoomId(); } while (rooms.has(rid));
+            rooms.set(rid, {
+                players: [ws, null],
+                history: [], current: 1, over: false,
+                public: false,   // 匹配房间不出现在观战列表
+                gridSize,
+            });
+            ws.roomId = rid;
+            ws.pi     = 0;
+            matchQueue.set(gridSize, ws);
+            send(ws, { type: 'matching', gridSize });
             broadcastStats();
-            broadcastRoomList();
+            return;
+        }
+
+        // ── 取消匹配 ──
+        if (msg.type === 'cancel_match') {
+            const gs = ws.matchGridSize;
+            if (gs !== undefined && matchQueue.get(gs) === ws) {
+                matchQueue.delete(gs);
+            }
+            if (ws.roomId) {
+                rooms.delete(ws.roomId);
+                ws.roomId = null;
+                broadcastStats();
+            }
+            ws.matchGridSize = undefined;
+            send(ws, { type: 'match_cancelled' });
             return;
         }
 
@@ -152,7 +233,10 @@ wss.on('connection', (ws) => {
 
         // ── 游戏结束通知（客户端检测到五子连珠后发送） ──
         if (msg.type === 'game_over') {
+            if (room.over) return;  // 双方都会发，只处理第一条
             room.over = true;
+            broadcastStats();
+            broadcastRoomList();
             return;
         }
 
@@ -161,6 +245,8 @@ wss.on('connection', (ws) => {
             if (room.over) return;
             room.over = true;
             broadcast(room, { type: 'resign', loser: ws.pi + 1 });
+            broadcastStats();
+            broadcastRoomList();
             return;
         }
 
@@ -171,6 +257,8 @@ wss.on('connection', (ws) => {
             const loser = (typeof msg.loser === 'number' && (msg.loser === 1 || msg.loser === 2))
                 ? msg.loser : (ws.pi + 1);
             broadcast(room, { type: 'timeout', loser });
+            broadcastStats();
+            broadcastRoomList();
             return;
         }
 
@@ -209,6 +297,8 @@ wss.on('connection', (ws) => {
             room.current = firstPlayer;
             room.over = false;
             broadcast(room, { type: 'restart', firstPlayer });
+            broadcastStats();
+            broadcastRoomList();
             return;
         }
 
@@ -254,6 +344,12 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('close', () => {
+        // 清理匹配队列
+        const gs = ws.matchGridSize;
+        if (gs !== undefined && matchQueue.get(gs) === ws) {
+            matchQueue.delete(gs);
+        }
+
         const room = ws.roomId ? rooms.get(ws.roomId) : null;
         if (room) {
             const opp = room.players[1 - ws.pi];
@@ -263,7 +359,7 @@ wss.on('connection', (ws) => {
             rooms.delete(ws.roomId);
         }
         broadcastStats();
-        broadcastRoomList(); // 断线后刷新公开房间列表
+        broadcastRoomList();
     });
 });
 
@@ -285,11 +381,22 @@ function sendOpp(ws, room, msg) {
     send(opp, msg);
 }
 
+// 正在对局且未结束的房间数（公开+私密均计入，等待中/匹配中/已结束不计入）
+function getPlayingRoomCount() {
+    let count = 0;
+    for (const [, room] of rooms) {
+        if (room.players[1] && !room.over) count++;
+    }
+    return count;
+}
+
 // 向所有尚未进入房间的客户端广播在线统计
 function broadcastStats() {
-    const online = wss.clients.size;
-    const roomCount = rooms.size;
-    const payload = JSON.stringify({ type: 'stats', online, rooms: roomCount });
+    const payload = JSON.stringify({
+        type: 'stats',
+        online: wss.clients.size,
+        rooms: getPlayingRoomCount(),
+    });
     for (const client of wss.clients) {
         if (client.readyState === WebSocket.OPEN && !client.roomId) {
             client.send(payload);
@@ -297,14 +404,15 @@ function broadcastStats() {
     }
 }
 
-// 向所有大厅客户端广播公开等待中的房间列表
+// 向所有大厅客户端广播公开对局中的房间列表
 function getPublicRoomList() {
     const list = [];
     for (const [id, room] of rooms) {
-        if (room.public && !room.players[1]) {
+        if (room.public && room.players[1] && !room.over) {
             list.push({
                 id,
-                host: room.players[0]?.profile || { name: '房主', avatar: 5 },
+                p1: room.players[0]?.profile || { name: '玩家一', avatar: 5 },
+                p2: room.players[1]?.profile || { name: '玩家二', avatar: 5 },
             });
         }
     }

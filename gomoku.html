@@ -105,6 +105,11 @@ body {
     color: #fff;
     box-shadow: 0 4px 16px rgba(42, 157, 181, 0.32);
 }
+.btn-teal {
+    background: linear-gradient(135deg, #2a9db5, #1a6878);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(42, 157, 181, 0.32);
+}
 
 /* ══════════ DIVIDER ══════════ */
 .divider {
@@ -163,7 +168,7 @@ body {
     gap: 12px;
     width: 100%;
     max-width: 320px;
-    margin: 0 auto 4px;
+    margin: 0 auto 14px;
 }
 .lan-stat-card {
     flex: 1;
@@ -189,28 +194,39 @@ body {
 }
 
 /* ══════════ ROOM VISIBILITY TOGGLE ══════════ */
-.vis-row {
-    display: flex;
-    gap: 8px;
-    width: 100%;
-}
-.vis-btn {
-    flex: 1;
-    padding: 8px 0;
-    border-radius: 8px;
+
+/* ══════════ MATCHING SCREEN ══════════ */
+.match-info-card {
+    background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.05);
-    color: rgba(200,220,255,0.45);
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    letter-spacing: 1px;
+    border-radius: 16px;
+    padding: 28px 36px;
+    text-align: center;
+    margin-bottom: 24px;
 }
-.vis-btn:hover { filter: brightness(1.15); }
-.vis-btn.active {
+.match-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: #e0f0ff;
+    margin-bottom: 10px;
+}
+.match-sub {
+    font-size: 0.78rem;
+    color: rgba(200,220,255,0.45);
+    letter-spacing: 2px;
+    line-height: 1.7;
+}
+.match-size-badge {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 4px 16px;
+    border-radius: 20px;
     background: rgba(42,157,181,0.2);
-    border-color: rgba(42,157,181,0.5);
+    border: 1px solid rgba(42,157,181,0.4);
     color: #7ecfff;
+    font-size: 0.9rem;
+    letter-spacing: 2px;
 }
 
 /* ══════════ PUBLIC ROOM LIST ══════════ */
@@ -968,13 +984,8 @@ canvas {
     </div>
 
     <div class="menu-card">
-        <!-- 房间可见性 -->
-        <div style="font-size:0.65rem;color:rgba(200,220,255,0.28);letter-spacing:1.5px;text-align:center;margin-bottom:6px;">创建房间可见性</div>
-        <div class="vis-row">
-            <button class="vis-btn active" id="vis-public"  onclick="setRoomVisibility(true)">🌐 公开</button>
-            <button class="vis-btn"        id="vis-private" onclick="setRoomVisibility(false)">🔒 私密</button>
-        </div>
-        <button class="btn btn-primary" onclick="createRoom()">创建房间</button>
+        <button class="btn btn-primary"   onclick="createRoom()">创建房间</button>
+        <button class="btn btn-teal"      onclick="startMatch()">随机匹配</button>
         <div class="divider">或者加入已有房间</div>
         <div class="input-row">
             <input class="room-input" id="join-input" placeholder="房间号" maxlength="4"
@@ -988,9 +999,9 @@ canvas {
 
     <!-- 公开房间列表 -->
     <div class="pub-rooms-section">
-        <div class="pub-rooms-hdr">── 等待加入的公开房间 ──</div>
+        <div class="pub-rooms-hdr">── 正在对局中的公开房间 ──</div>
         <div class="pub-rooms-list" id="pub-rooms-list">
-            <div class="pub-room-empty">暂无公开房间</div>
+            <div class="pub-room-empty">暂无正在进行的公开对局</div>
         </div>
     </div>
 </div>
@@ -1004,6 +1015,20 @@ canvas {
         <div class="rcc-hint">将以上房间号告诉对方<br>对方在同一局域网内打开相同地址后输入即可</div>
     </div>
     <button class="btn btn-ghost" style="width:200px;" onclick="cancelWaiting()">取 消</button>
+</div>
+
+<!-- ════════ MATCHING ════════ -->
+<div class="screen" id="screen-matching">
+    <div class="spinner"></div>
+    <div class="match-info-card">
+        <div class="match-title">正 在 匹 配</div>
+        <div class="match-sub">
+            优先匹配等待中的公开房间<br>
+            未找到时自动等待对手加入
+        </div>
+        <div class="match-size-badge" id="match-size-badge">15 × 15</div>
+    </div>
+    <button class="btn btn-ghost" style="width:200px;" onclick="cancelMatch()">取 消</button>
 </div>
 
 <!-- ════════ GAME ════════ -->
@@ -1239,9 +1264,17 @@ const BOARD_CONFIGS = {
     19: { cell: 32, pad: 28, radius: 13 },
     21: { cell: 29, pad: 28, radius: 11 },
 };
-let selectedGrid = 15;
-let GRID = 15, CELL = 40, PAD = 28, RADIUS = 16;
-let SIZE = PAD * 2 + CELL * (GRID - 1);
+// 从 localStorage 读取上次选择的棋盘大小，默认 15
+const _VALID_GRIDS = new Set([13, 15, 17, 19, 21]);
+const _savedGrid   = parseInt(localStorage.getItem('gomoku_grid_size') || '15');
+let selectedGrid   = _VALID_GRIDS.has(_savedGrid) ? _savedGrid : 15;
+
+const _initCfg = BOARD_CONFIGS[selectedGrid];
+let GRID   = selectedGrid;
+let CELL   = _initCfg.cell;
+let PAD    = _initCfg.pad;
+let RADIUS = _initCfg.radius;
+let SIZE   = PAD * 2 + CELL * (GRID - 1);
 
 // ═══════════════════════════════════════
 //   CANVAS
@@ -1768,6 +1801,7 @@ function selectSize(n) {
     document.querySelectorAll('.size-btn').forEach(b => {
         b.classList.toggle('active', parseInt(b.dataset.size) === n);
     });
+    try { localStorage.setItem('gomoku_grid_size', n); } catch(e) {}
 }
 
 function applyGridSize() {
@@ -1836,17 +1870,24 @@ function startLan() {
     });
 }
 
-let _roomPublic = true;   // 创建房间时是否公开
-
-function setRoomVisibility(pub) {
-    _roomPublic = pub;
-    document.getElementById('vis-public') .classList.toggle('active',  pub);
-    document.getElementById('vis-private').classList.toggle('active', !pub);
-}
-
 function createRoom() {
     const prof = { name: profiles[0].name, avatar: profiles[0].avatar };
-    connectWS(() => ws.send(JSON.stringify({ type: 'create', profile: prof, public: _roomPublic })));
+    connectWS(() => ws.send(JSON.stringify({ type: 'create', profile: prof, public: true, gridSize: selectedGrid })));
+}
+
+function startMatch() {
+    const prof = { name: profiles[0].name, avatar: profiles[0].avatar };
+    const badge = document.getElementById('match-size-badge');
+    if (badge) badge.textContent = `${selectedGrid} × ${selectedGrid}`;
+    connectWS(() => ws.send(JSON.stringify({ type: 'match', profile: prof, gridSize: selectedGrid })));
+}
+
+function cancelMatch() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'cancel_match' }));
+    } else {
+        showScreen('screen-lan-lobby');
+    }
 }
 
 function joinRoom() {
@@ -1870,26 +1911,28 @@ function renderRoomList(roomArr) {
     const el = document.getElementById('pub-rooms-list');
     if (!el) return;
     if (!roomArr || roomArr.length === 0) {
-        el.innerHTML = '<div class="pub-room-empty">暂无公开房间</div>';
+        el.innerHTML = '<div class="pub-room-empty">暂无正在进行的公开对局</div>';
         return;
     }
     el.innerHTML = roomArr.map(r => {
-        const av  = AVATARS[r.host?.avatar ?? 5] ?? '🎮';
-        const nm  = r.host?.name ?? '房主';
+        const av1 = AVATARS[r.p1?.avatar ?? 5] ?? '🎮';
+        const nm1 = r.p1?.name ?? '玩家一';
+        const av2 = AVATARS[r.p2?.avatar ?? 5] ?? '🎮';
+        const nm2 = r.p2?.name ?? '玩家二';
         return `<div class="pub-room-item">
-            <div class="pub-room-av">${av}</div>
+            <div class="pub-room-av">${av1}</div>
             <div class="pub-room-info">
-                <div class="pub-room-name">${nm}</div>
+                <div class="pub-room-name">${nm1} <span style="color:rgba(200,220,255,0.4);font-size:0.8em">VS</span> ${nm2}</div>
                 <div class="pub-room-code">房间号：${r.id}</div>
             </div>
-            <button class="pub-room-join" onclick="joinPublicRoom('${r.id}')">加 入</button>
+            <div class="pub-room-av">${av2}</div>
         </div>`;
     }).join('');
 }
 
 function cancelWaiting() {
     if (ws) { ws.close(); ws = null; }
-    showScreen('screen-lan-lobby');
+    startLan();
 }
 
 // ═══════════════════════════════════════
@@ -1922,10 +1965,33 @@ function handleWS(msg) {
             break;
         }
 
+        // 正在匹配中（已入队等待）
+        case 'matching': {
+            const badge = document.getElementById('match-size-badge');
+            if (badge) badge.textContent = `${msg.gridSize} × ${msg.gridSize}`;
+            showScreen('screen-matching');
+            break;
+        }
+
+        // 取消匹配成功
+        case 'match_cancelled': {
+            showScreen('screen-lan-lobby');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'ping_stats' }));
+                ws.send(JSON.stringify({ type: 'ping_rooms' }));
+            }
+            break;
+        }
+
         // 双方就绪，游戏开始
         case 'start': {
             myPlayer = msg.player;
             mode     = 'lan';
+            // 应用服务端指定的棋盘大小
+            if (msg.gridSize && BOARD_CONFIGS[msg.gridSize]) {
+                selectedGrid = msg.gridSize;
+                applyGridSize();
+            }
             initBoard();
             // 服务端随机先手
             firstPlayer = msg.firstPlayer || 1;
@@ -2625,6 +2691,10 @@ function _showTimeoutResult(loser) {
 //   INIT
 // ═══════════════════════════════════════
 updateLobbyProfiles();
+// 同步所有棋盘大小按钮（主大厅 + 局域网大厅）到已保存的选项
+document.querySelectorAll('.size-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.size) === selectedGrid);
+});
 initBoard();
 draw();
 </script>
